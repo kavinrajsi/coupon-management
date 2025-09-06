@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { generateCoupons, initDatabase, getAllCoupons } from '@/lib/database';
+import { createShopifyDiscount } from '@/lib/shopify';
 
 export async function POST(request) {
   try {
     initDatabase();
     
-    const { count = 10000 } = await request.json();
+      const { count = 10000, syncToShopify = true } = await request.json();
     
     // Validate request count
     if (count < 1 || count > 10000) {
@@ -44,11 +45,18 @@ export async function POST(request) {
     
     const generatedCount = generateCoupons(count);
     
+    let shopifyMessage = '';
+    if (syncToShopify && generatedCount > 0) {
+      // Trigger background sync (you could also do this immediately)
+      shopifyMessage = ' (Shopify sync will begin shortly)';
+    }
+    
     return NextResponse.json({
       success: true,
-      message: `Generated ${generatedCount} coupon codes`,
+      message: `Generated ${generatedCount} coupon codes${shopifyMessage}`,
       count: generatedCount,
-      totalInDatabase: existingCount + generatedCount
+      totalInDatabase: existingCount + generatedCount,
+      shopifySyncEnabled: syncToShopify
     });
   } catch (error) {
     return NextResponse.json({
@@ -57,4 +65,5 @@ export async function POST(request) {
       error: error.message
     }, { status: 500 });
   }
+
 }

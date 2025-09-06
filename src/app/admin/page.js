@@ -13,6 +13,8 @@ export default function AdminPanel() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [sortBy, setSortBy] = useState('created_date');
   const [sortOrder, setSortOrder] = useState('desc');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
 
   const itemsPerPage = 20;
 
@@ -128,6 +130,36 @@ const generateCoupons = async () => {
     scratched: coupons.filter(c => c.is_scratched).length
   };
 
+  const syncToShopify = async () => {
+  setIsSyncing(true);
+  setSyncMessage('');
+  
+  try {
+    const response = await fetch('/api/shopify/sync', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ syncAll: true }),
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      setSyncMessage(`✅ ${data.message}`);
+      fetchCoupons(); // Refresh the list
+    } else {
+      setSyncMessage(`❌ ${data.message}`);
+    }
+  } catch (error) {
+    setSyncMessage(`❌ Error: ${error.message}`);
+  } finally {
+    setIsSyncing(false);
+  }
+};
+
+
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
       {/* Header */}
@@ -159,7 +191,40 @@ const generateCoupons = async () => {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+<div className="mt-4">
+  <button
+    onClick={syncToShopify}
+    disabled={isSyncing}
+    className={`w-full py-3 px-4 rounded-xl text-white font-medium transition-all duration-200 ${
+      isSyncing 
+        ? 'bg-gray-400 cursor-not-allowed' 
+        : 'bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700'
+    }`}
+  >
+    {isSyncing ? (
+      <span className="flex items-center justify-center space-x-2">
+        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+        <span>Syncing to Shopify...</span>
+      </span>
+    ) : (
+      <span className="flex items-center justify-center space-x-2">
+        <span>🛍️</span>
+        <span>Sync to Shopify</span>
+      </span>
+    )}
+  </button>
+
+  {syncMessage && (
+    <div className="mt-3 p-3 rounded-lg bg-gray-50 text-sm">
+      {syncMessage}
+    </div>
+  )}
+</div>
+</div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
+        
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 transform hover:scale-105 transition-all duration-200">
             <div className="flex items-center justify-between">

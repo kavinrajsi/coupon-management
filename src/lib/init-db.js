@@ -7,7 +7,7 @@ async function initializeSystem() {
     initDatabase();
     
     console.log('Generating initial coupons...');
-    const count = generateCoupons(1000); // Generate 100 initial coupons for testing
+    const count = generateCoupons(2); // Generate 100 initial coupons for testing
     
     console.log(`System initialized successfully with ${count} coupons!`);
   } catch (error) {
