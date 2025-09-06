@@ -18,10 +18,13 @@ export default function ViewCoupon() {
 
   const fetchCoupon = async (code) => {
     try {
+      setLoading(true);
+      setError('');
+      
       const response = await fetch(`/api/coupons?code=${code}`);
       const data = await response.json();
       
-      if (data.success && data.coupons.length > 0) {
+      if (data.success && data.coupons && data.coupons.length > 0) {
         const couponData = data.coupons[0];
         setCoupon(couponData);
         setHasScratched(couponData.is_scratched);
@@ -29,12 +32,14 @@ export default function ViewCoupon() {
         setError('Coupon not found');
       }
     } catch (error) {
+      console.error('Error fetching coupon:', error);
       setError('Error loading coupon');
     } finally {
       setLoading(false);
     }
   };
 
+  // ✅ Updated handleScratch function
   const handleScratch = async (code) => {
     try {
       const response = await fetch('/api/coupons/scratch', {
@@ -54,11 +59,15 @@ export default function ViewCoupon() {
           is_scratched: true,
           scratched_date: new Date().toISOString()
         }));
+      } else {
+        console.error('Scratch error:', data.message);
       }
     } catch (error) {
       console.error('Error scratching coupon:', error);
     }
   };
+
+
 
   if (loading) {
     return (

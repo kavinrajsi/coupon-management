@@ -11,13 +11,12 @@
   },
   "dependencies": {
     "@shopify/admin-api-client": "^1.1.1",
+    "@supabase/supabase-js": "^2.57.2",
     "bcryptjs": "^3.0.2",
-    "better-sqlite3": "^12.2.0",
     "jsonwebtoken": "^9.0.2",
     "next": "15.5.2",
     "react": "19.1.0",
-    "react-dom": "19.1.0",
-    "sqlite3": "^5.1.7"
+    "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

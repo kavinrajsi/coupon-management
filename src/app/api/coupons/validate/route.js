@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { validateCoupon, getCouponByCode, initDatabase } from '@/lib/database';
-import { deactivateShopifyDiscount } from '@/lib/shopify';
+import { validateCoupon, getCouponByCode, initDatabase } from '@/lib/supabase';
+import { disableShopifyDiscount } from '@/lib/shopify';  // ✅ Fixed import
 
 export async function POST(request) {
   try {
@@ -19,7 +19,7 @@ export async function POST(request) {
     }
 
     // First, get the coupon details for debugging
-    const coupon = getCouponByCode(code);
+    let coupon = getCouponByCode(code);
     console.log('Coupon found:', coupon);
 
     if (!coupon) {
@@ -50,15 +50,51 @@ export async function POST(request) {
       });
     }
     
+    // Check Shopify status first
+if (coupon.shopify_discount_id) {
+  const { checkAndSyncSpecificCoupon } = await import('@/lib/shopify');
+  const statusCheck = await checkAndSyncSpecificCoupon(code);
+  
+  if (statusCheck.success && statusCheck.updated) {
+    console.log(`📋 Updated coupon status from Shopify: ${statusCheck.message}`);
+    // Refresh coupon data
+    coupon = getCouponByCode(code);
+  }
+}
+
+
     // Proceed with validation
     const result = validateCoupon(code, employeeCode, storeLocation);
     console.log('Validation result:', result);
-
+    
     if (result.success) {
-      if (coupon.shopify_discount_id) {
-        await deactivateShopifyDiscount(coupon.shopify_discount_id);
+      // If coupon was validated successfully and has Shopify ID, disable it in Shopify
+      if (result.shouldDisableShopify && result.coupon.shopify_discount_id) {
+        console.log(`🔒 Auto-disabling Shopify discount for used coupon: ${code}`);
+        
+        try {
+          const shopifyResult = await disableShopifyDiscount(result.coupon.shopify_discount_id);  // ✅ Fixed function call
+          
+          if (shopifyResult.success) {
+            console.log('✅ Successfully disabled coupon in Shopify');
+            // Update database to reflect Shopify status
+            const { updateShopifyStatus } = await import('@/lib/database');
+            updateShopifyStatus(code, 'disabled');
+            
+            result.shopifyDisabled = true;
+            result.message += ' (Also disabled in Shopify)';
+          } else {
+            console.warn('⚠️ Failed to disable coupon in Shopify:', shopifyResult.message);
+            result.shopifyDisabled = false;
+            result.shopifyError = shopifyResult.message;
+          }
+        } catch (shopifyError) {
+          console.error('❌ Error disabling coupon in Shopify:', shopifyError);
+          result.shopifyDisabled = false;
+          result.shopifyError = shopifyError.message;
+        }
       }
-
+      
       // Get updated coupon details
       const updatedCoupon = getCouponByCode(code);
       return NextResponse.json({

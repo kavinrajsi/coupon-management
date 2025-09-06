@@ -15,20 +15,48 @@ export default function CustomerPanel() {
     fetchCoupons();
   }, []);
 
-  const fetchCoupons = async () => {
+   const fetchCoupons = async () => {
     try {
+      setLoading(true);
       const response = await fetch('/api/coupons');
       const data = await response.json();
       
       if (data.success) {
-        setCoupons(data.coupons.filter(c => c.status === 'active'));
+        // Filter active coupons on the client side (backup filter)
+        const activeCoupons = (data.coupons || []).filter(c => c.status === 'active');
+        setCoupons(activeCoupons);
+      } else {
+        console.error('Failed to fetch coupons:', data.message);
+        setCoupons([]);
       }
     } catch (error) {
       console.error('Error fetching coupons:', error);
+      setCoupons([]);
     } finally {
       setLoading(false);
     }
   };
+
+    const copyToClipboard = async (code) => {
+    const url = `${window.location.origin}/view/${code}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(''), 2000);
+    } catch (error) {
+      console.error('Clipboard error:', error);
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = url;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      setCopiedCode(code);
+      setTimeout(() => setCopiedCode(''), 2000);
+    }
+  };
+
 
   // Handle column sorting
   const handleSort = (column) => {

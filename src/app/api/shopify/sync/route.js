@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getCouponsNeedingSync, updateShopifySync, initDatabase } from '@/lib/database';
+import { getCouponsNeedingSync, updateShopifySync, initDatabase } from '@/lib/supabase';
 import { createShopifyDiscount } from '@/lib/shopify';
 
 export async function POST(request) {
   try {
     console.log('🔄 Starting Shopify sync...');
-    initDatabase();
+    await initDatabase(); // Make sure this is awaited
     
     // Check environment variables
     if (!process.env.SHOPIFY_STORE_URL || !process.env.SHOPIFY_ACCESS_TOKEN) {
@@ -16,9 +16,21 @@ export async function POST(request) {
     }
     
     const { syncAll = false } = await request.json();
-    const couponsToSync = getCouponsNeedingSync();
     
-    console.log(`📊 Found ${couponsToSync.length} coupons to sync`);
+    // Make sure this is awaited since it's an async function
+    const couponsToSync = await getCouponsNeedingSync();
+    
+    console.log('📋 Raw couponsToSync result:', couponsToSync);
+    console.log(`📊 Found ${couponsToSync?.length || 0} coupons to sync`);
+    
+    // Check if we got a valid array
+    if (!Array.isArray(couponsToSync)) {
+      console.error('❌ getCouponsNeedingSync did not return an array:', typeof couponsToSync);
+      return NextResponse.json({
+        success: false,
+        message: 'Error fetching coupons needing sync - invalid data type returned'
+      }, { status: 500 });
+    }
     
     if (couponsToSync.length === 0) {
       return NextResponse.json({
@@ -32,6 +44,16 @@ export async function POST(request) {
     
     // Sync first coupon as test
     const testCoupon = couponsToSync[0];
+    
+    // Add safety check for testCoupon
+    if (!testCoupon || !testCoupon.code) {
+      console.error('❌ Invalid test coupon:', testCoupon);
+      return NextResponse.json({
+        success: false,
+        message: 'Invalid coupon data - missing code field'
+      }, { status: 500 });
+    }
+    
     console.log(`🧪 Testing with coupon: ${testCoupon.code}`);
     
     const testResult = await createShopifyDiscount(testCoupon.code);
@@ -46,8 +68,8 @@ export async function POST(request) {
       }, { status: 400 });
     }
     
-    // Update test coupon
-    updateShopifySync(testCoupon.code, testResult.shopifyId, true);
+    // Update test coupon - make sure this is awaited
+    await updateShopifySync(testCoupon.code, testResult.shopifyId, true);
     results.push({
       code: testCoupon.code,
       success: true,
@@ -57,12 +79,24 @@ export async function POST(request) {
     // Continue with remaining coupons
     for (let i = 1; i < couponsToSync.length; i++) {
       const coupon = couponsToSync[i];
+      
+      // Add safety check for each coupon
+      if (!coupon || !coupon.code) {
+        console.error(`❌ Invalid coupon at index ${i}:`, coupon);
+        results.push({
+          code: 'INVALID',
+          success: false,
+          error: 'Invalid coupon data'
+        });
+        continue;
+      }
+      
       console.log(`🔄 Syncing coupon ${i + 1}/${couponsToSync.length}: ${coupon.code}`);
       
       const shopifyResult = await createShopifyDiscount(coupon.code);
       
       if (shopifyResult.success) {
-        updateShopifySync(coupon.code, shopifyResult.shopifyId, true);
+        await updateShopifySync(coupon.code, shopifyResult.shopifyId, true);
         results.push({
           code: coupon.code,
           success: true,

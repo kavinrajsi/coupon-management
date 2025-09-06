@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { validateCoupon, getCouponByCode, initDatabase } from '@/lib/database';
+import { validateCoupon, getCouponByCode, initDatabase } from '@/lib/supabase';
 import { deactivateShopifyDiscount } from '@/lib/shopify';
 
 export async function POST(request) {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { scratchCoupon, initDatabase } from '@/lib/database';
+import { scratchCoupon, initDatabase } from '@/lib/supabase';
 
 export async function POST(request) {
   try {
