@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { validateCoupon, getCouponByCode, initDatabase } from '@/lib/database';
+import { validateCoupon, getCouponByCode, initDatabase, deactivateCoupon } from '@/lib/database';
+import { deactivateShopifyDiscount, getShopifyDiscountStatus } from '@/lib/shopify';
 
 export async function POST(request) {
   try {
@@ -29,6 +30,19 @@ export async function POST(request) {
       });
     }
 
+    if (coupon.shopify_discount_id) {
+      const shopify = await getShopifyDiscountStatus(coupon.shopify_discount_id);
+      if (shopify.success && shopify.status !== 'ACTIVE') {
+        deactivateCoupon(code);
+        const updatedCoupon = getCouponByCode(code);
+        return NextResponse.json({
+          success: false,
+          message: `Coupon is not active in Shopify. Status: "${shopify.status}"`,
+          couponDetails: updatedCoupon
+        });
+      }
+    }
+
     // Return detailed information about why validation failed
     if (coupon.status !== 'active') {
       return NextResponse.json({
@@ -52,8 +66,12 @@ export async function POST(request) {
     // Proceed with validation
     const result = validateCoupon(code, employeeCode, storeLocation);
     console.log('Validation result:', result);
-    
+
     if (result.success) {
+      if (coupon.shopify_discount_id) {
+        await deactivateShopifyDiscount(coupon.shopify_discount_id);
+      }
+
       // Get updated coupon details
       const updatedCoupon = getCouponByCode(code);
       return NextResponse.json({
