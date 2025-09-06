@@ -12,7 +12,7 @@ const client = createAdminApiClient({
   accessToken: process.env.SHOPIFY_ACCESS_TOKEN,
 });
 
-export async function createShopifyDiscount(couponCode) {
+async function createShopifyDiscount(couponCode) {
   try {
     console.log(`🔄 Creating Shopify discount for: ${couponCode}`);
     
@@ -167,3 +167,66 @@ export async function createShopifyDiscount(couponCode) {
     };
   }
 }
+
+async function getShopifyDiscountStatus(discountId) {
+  try {
+    if (!discountId) throw new Error('No discount ID provided');
+
+    const query = `
+      query discountCode($id: ID!) {
+        codeDiscountNode(id: $id) {
+          codeDiscount {
+            ... on DiscountCodeBasic {
+              status
+            }
+          }
+        }
+      }
+    `;
+
+    const response = await client.request(query, { variables: { id: discountId } });
+    const status = response.data?.codeDiscountNode?.codeDiscount?.status;
+    return { success: true, status };
+  } catch (error) {
+    console.error('❌ Shopify discount status fetch error:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+async function deactivateShopifyDiscount(discountId) {
+  try {
+    if (!discountId) {
+      throw new Error('No discount ID provided');
+    }
+
+    const mutation = `
+      mutation discountDeactivate($id: ID!) {
+        discountDeactivate(id: $id) {
+          codeDiscountNode { id }
+          userErrors { field message }
+        }
+      }
+    `;
+
+    const response = await client.request(mutation, {
+      variables: { id: discountId }
+    });
+
+    const errors = response.data?.discountDeactivate?.userErrors;
+    if (errors && errors.length > 0) {
+      throw new Error(errors.map(e => e.message).join(', '));
+    }
+
+    console.log(`✅ Shopify discount ${discountId} deactivated successfully`);
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Shopify discount deactivation error:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+export {
+  createShopifyDiscount,
+  getShopifyDiscountStatus,
+  deactivateShopifyDiscount,
+};
