@@ -29,6 +29,29 @@ export async function POST(request) {
         couponDetails: null
       });
     }
+ 
+    let shopifyDeactivated = false;
+    if (coupon.shopify_discount_id) {
+      const shopify = await getShopifyDiscountStatus(coupon.shopify_discount_id);
+      if (shopify.success) {
+        if (shopify.status !== 'ACTIVE') {
+          deactivateCoupon(code);
+          const updatedCoupon = getCouponByCode(code);
+          return NextResponse.json({
+            success: false,
+            message: `Coupon is not active in Shopify. Status: "${shopify.status}"`,
+            couponDetails: updatedCoupon
+          });
+        }
+
+        if (coupon.status === 'active' && shopify.status === 'ACTIVE') {
+          const deactivation = await deactivateShopifyDiscount(coupon.shopify_discount_id);
+          shopifyDeactivated = deactivation.success;
+          console.log(`Shopify discount ${coupon.shopify_discount_id} deactivated for active coupon ${code}`, deactivation);
+        }
+ 
+      }
+    }
 
     let shopifyDeactivated = false;
     if (coupon.shopify_discount_id) {

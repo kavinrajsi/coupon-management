@@ -165,7 +165,7 @@ async function createShopifyDiscount(couponCode) {
       message: `Shopify API Error: ${error.message}`,
       details: error
     };
-  }
+  } 
 }
 
 async function getShopifyDiscountStatus(discountId) {
@@ -229,4 +229,4 @@ export {
   createShopifyDiscount,
   getShopifyDiscountStatus,
   deactivateShopifyDiscount,
-};
+}; 
