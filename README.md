@@ -15,9 +15,9 @@ A comprehensive Next.js application for managing coupon codes with interactive s
 - **Coupon Generation** - Unique 3-letter + 3-number codes (max 10,000)
 - **Multi-Panel System** - Admin, Store, Customer, and View interfaces
 - **Real-time Tracking** - Complete audit trail of coupon lifecycle
-- **Store Management** - 18 store locations with employee tracking
+- **Store Management** - 18 store locations with employee tracking 
 - **Shopify Sync** - Codes stay in sync with Shopify for redemptions, manual deactivations, and auto-disabling active Store Panel coupons in Shopify
-
+ 
 ### 🎨 Modern UI/UX
 
 - **Responsive Design** - Works seamlessly on all devices
