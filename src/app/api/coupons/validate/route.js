@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { validateCoupon, getCouponByCode, initDatabase } from '@/lib/database';
-import { deactivateShopifyDiscount } from '@/lib/shopify';
+import { validateCoupon, getCouponByCode, initDatabase, deactivateCoupon } from '@/lib/database';
+import { deactivateShopifyDiscount, getShopifyDiscountStatus } from '@/lib/shopify';
 
 export async function POST(request) {
   try {
@@ -28,6 +28,19 @@ export async function POST(request) {
         message: `Coupon "${code}" not found in database. Please check if the coupon code is correct.`,
         couponDetails: null
       });
+    }
+
+    if (coupon.shopify_discount_id) {
+      const shopify = await getShopifyDiscountStatus(coupon.shopify_discount_id);
+      if (shopify.success && shopify.status !== 'ACTIVE') {
+        deactivateCoupon(code);
+        const updatedCoupon = getCouponByCode(code);
+        return NextResponse.json({
+          success: false,
+          message: `Coupon is not active in Shopify. Status: "${shopify.status}"`,
+          couponDetails: updatedCoupon
+        });
+      }
     }
 
     // Return detailed information about why validation failed
