@@ -111,7 +111,7 @@ export default function ViewCoupon() {
               <div className="text-6xl mb-4">🎉</div>
               <h2 className="text-3xl font-bold text-gray-800 mb-2">{coupon.code}</h2>
               <p className="text-lg text-gray-700 font-semibold">Congratulations!</p>
-              <p className="text-sm text-gray-600 mt-2">You've won a prize!</p>
+              <p className="text-sm text-gray-600 mt-2">You&apos;ve won a prize!</p>
               <div className="mt-4 text-xs text-gray-500">
                 <p>Scratched on: {new Date(coupon.scratched_date).toLocaleDateString()}</p>
                 <p>at {new Date(coupon.scratched_date).toLocaleTimeString()}</p>

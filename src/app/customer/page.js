@@ -384,7 +384,7 @@ export default function CustomerPanel() {
                       <span className="text-lg">1️⃣</span>
                       <div>
                         <p className="font-medium">Copy Link</p>
-                        <p>Click "Copy URL" to get the shareable link</p>
+                        <p>Click &quot;Copy URL&quot; to get the shareable link</p>
                       </div>
                     </div>
                     <div className="flex items-start space-x-2">

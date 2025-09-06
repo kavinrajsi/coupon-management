@@ -159,7 +159,7 @@ export default function ScratchCard({ couponCode, onScratch }) {
           <div className="text-6xl mb-4">🎉</div>
           <h2 className="text-3xl font-bold text-gray-800 mb-2">{couponCode}</h2>
           <p className="text-lg text-gray-700 font-semibold">Congratulations!</p>
-          <p className="text-sm text-gray-600 mt-2">You've won a prize!</p>
+          <p className="text-sm text-gray-600 mt-2">You&apos;ve won a prize!</p>
         </div>
       </div>
       
