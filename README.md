@@ -15,9 +15,9 @@ A comprehensive Next.js application for managing coupon codes with interactive s
 - **Coupon Generation** - Unique 3-letter + 3-number codes (max 10,000)
 - **Multi-Panel System** - Admin, Store, Customer, and View interfaces
 - **Real-time Tracking** - Complete audit trail of coupon lifecycle
-- **Store Management** - 18 store locations with employee tracking
-- **Shopify Sync** - Codes stay in sync with Shopify for redemptions and manual deactivations
-
+- **Store Management** - 18 store locations with employee tracking 
+- **Shopify Sync** - Codes stay in sync with Shopify for redemptions, manual deactivations, and auto-disabling active Store Panel coupons in Shopify
+ 
 ### 🎨 Modern UI/UX
 
 - **Responsive Design** - Works seamlessly on all devices
@@ -141,7 +141,7 @@ CREATE TABLE coupons (
 - `GET /api/coupons` - Fetch all coupons
 - `GET /api/coupons?code=ABC123` - Get specific coupon
 - `POST /api/coupons/generate` - Generate new coupons
-- `POST /api/coupons/validate` - Validate coupon code
+- `POST /api/coupons/validate` - Validate coupon code (auto-deactivates Shopify discount when coupon is active locally)
 - `POST /api/coupons/scratch` - Mark coupon as scratched
 - `POST /api/shopify/redeem` - Mark a coupon as used from Shopify checkout
 - `POST /api/shopify/deactivate` - Deactivate a local coupon when its Shopify discount is disabled

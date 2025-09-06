@@ -166,30 +166,4 @@ export async function createShopifyDiscount(couponCode) {
       details: error
     };
   }
-}
- 
-export async function getShopifyDiscountStatus(discountId) {
-  try {
-    if (!discountId) throw new Error('No discount ID provided');
-
-    const query = `
-      query discountCode($id: ID!) {
-        codeDiscountNode(id: $id) {
-          codeDiscount {
-            ... on DiscountCodeBasic {
-              status
-            }
-          }
-        }
-      }
-    `;
-
-    const response = await client.request(query, { variables: { id: discountId } });
-    const status = response.data?.codeDiscountNode?.codeDiscount?.status;
-    return { success: true, status };
-  } catch (error) {
-    console.error('❌ Shopify discount status fetch error:', error);
-    return { success: false, message: error.message };
-  }
-}
- 
+} 
