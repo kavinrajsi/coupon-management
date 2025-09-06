@@ -164,6 +164,22 @@ export function validateCoupon(code, employeeCode, storeLocation) {
   }
 }
 
+// Deactivate coupon without marking as used
+export function deactivateCoupon(code) {
+  const coupon = getCouponByCode(code);
+  if (!coupon) return { success: false, message: 'Coupon not found' };
+  if (coupon.status !== 'active') return { success: false, message: 'Coupon is not active' };
+
+  const updateStmt = db.prepare(`
+    UPDATE coupons
+    SET status = 'inactive'
+    WHERE code = ?
+  `);
+
+  updateStmt.run(code);
+  return { success: true, message: 'Coupon deactivated successfully' };
+}
+
 // Scratch coupon
 export function scratchCoupon(code) {
   const coupon = getCouponByCode(code);

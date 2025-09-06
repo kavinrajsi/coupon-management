@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { validateCoupon, getCouponByCode, initDatabase } from '@/lib/database';
+import { validateCoupon, getCouponByCode, initDatabase, deactivateCoupon } from '@/lib/database';
+import { deactivateShopifyDiscount, getShopifyDiscountStatus } from '@/lib/shopify';
 
 export async function POST(request) {
   try {
@@ -29,6 +30,28 @@ export async function POST(request) {
       });
     }
 
+    let shopifyDeactivated = false;
+    if (coupon.shopify_discount_id) {
+      const shopify = await getShopifyDiscountStatus(coupon.shopify_discount_id);
+      if (shopify.success) {
+        if (shopify.status !== 'ACTIVE') {
+          deactivateCoupon(code);
+          const updatedCoupon = getCouponByCode(code);
+          return NextResponse.json({
+            success: false,
+            message: `Coupon is not active in Shopify. Status: "${shopify.status}"`,
+            couponDetails: updatedCoupon
+          });
+        }
+
+        if (coupon.status === 'active' && shopify.status === 'ACTIVE') {
+          const deactivation = await deactivateShopifyDiscount(coupon.shopify_discount_id);
+          shopifyDeactivated = deactivation.success;
+          console.log(`Shopify discount ${coupon.shopify_discount_id} deactivated for active coupon ${code}`, deactivation);
+        }
+      }
+    }
+
     // Return detailed information about why validation failed
     if (coupon.status !== 'active') {
       return NextResponse.json({
@@ -52,8 +75,13 @@ export async function POST(request) {
     // Proceed with validation
     const result = validateCoupon(code, employeeCode, storeLocation);
     console.log('Validation result:', result);
-    
+
     if (result.success) {
+      if (coupon.shopify_discount_id && !shopifyDeactivated) {
+        const deactivation = await deactivateShopifyDiscount(coupon.shopify_discount_id);
+        console.log(`Shopify discount ${coupon.shopify_discount_id} deactivated after redemption of ${code}`, deactivation);
+      }
+
       // Get updated coupon details
       const updatedCoupon = getCouponByCode(code);
       return NextResponse.json({
