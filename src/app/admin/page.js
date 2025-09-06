@@ -1,0 +1,582 @@
+'use client';
+import { useState, useEffect } from 'react';
+
+export default function AdminPanel() {
+  // State declarations
+  const [coupons, setCoupons] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [generationMessage, setGenerationMessage] = useState('');
+  const [count, setCount] = useState(10000);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [sortBy, setSortBy] = useState('created_date');
+  const [sortOrder, setSortOrder] = useState('desc');
+
+  const itemsPerPage = 20;
+
+  useEffect(() => {
+    fetchCoupons();
+  }, []);
+
+  const fetchCoupons = async () => {
+    try {
+      const response = await fetch('/api/coupons');
+      const data = await response.json();
+      
+      if (data.success) {
+        setCoupons(data.coupons);
+      }
+    } catch (error) {
+      console.error('Error fetching coupons:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+const generateCoupons = async () => {
+  setIsGenerating(true);
+  setGenerationMessage('');
+  
+  // Client-side validation
+  if (count < 1 || count > 10000) {
+    setGenerationMessage('Error: Please enter a number between 1 and 10,000');
+    setIsGenerating(false);
+    return;
+  }
+  
+  try {
+    const response = await fetch('/api/coupons/generate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ count }),
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      setGenerationMessage(`Successfully generated ${data.count} coupon codes! 🎉 Total in database: ${data.totalInDatabase}`);
+      fetchCoupons(); // Refresh the list
+    } else {
+      setGenerationMessage(`Error: ${data.message}`);
+    }
+  } catch (error) {
+    setGenerationMessage(`Error: ${error.message}`);
+  } finally {
+    setIsGenerating(false);
+  }
+};
+
+  // Handle column sorting
+  const handleSort = (column) => {
+    if (sortBy === column) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(column);
+      setSortOrder('asc');
+    }
+  };
+
+  // Filter and sort coupons
+  const filteredCoupons = coupons
+    .filter(coupon => {
+      const matchesSearch = coupon.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (coupon.employee_code && coupon.employee_code.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesFilter = filterStatus === 'all' || coupon.status === filterStatus;
+      return matchesSearch && matchesFilter;
+    })
+    .sort((a, b) => {
+      let aValue = a[sortBy];
+      let bValue = b[sortBy];
+      
+      // Handle different data types
+      if (sortBy === 'created_date' || sortBy === 'used_date') {
+        aValue = new Date(aValue || 0);
+        bValue = new Date(bValue || 0);
+      } else if (sortBy === 'store_location') {
+        aValue = parseInt(aValue || 0);
+        bValue = parseInt(bValue || 0);
+      } else if (sortBy === 'is_scratched') {
+        aValue = aValue ? 1 : 0;
+        bValue = bValue ? 1 : 0;
+      } else if (typeof aValue === 'string') {
+        aValue = (aValue || '').toLowerCase();
+        bValue = (bValue || '').toLowerCase();
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
+      }
+    });
+
+  const paginatedCoupons = filteredCoupons.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const totalPages = Math.ceil(filteredCoupons.length / itemsPerPage);
+
+  const stats = {
+    total: coupons.length,
+    active: coupons.filter(c => c.status === 'active').length,
+    used: coupons.filter(c => c.status === 'used').length,
+    scratched: coupons.filter(c => c.is_scratched).length
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      {/* Header */}
+      <div className="bg-white shadow-lg border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center space-x-4">
+              <div className="flex-shrink-0">
+                <div className="h-12 w-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-white font-bold text-xl">👑</span>
+                </div>
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+                <p className="text-sm text-gray-500">Manage and monitor coupon system</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-right text-sm text-gray-600">
+                <p className="font-medium">Administrator Panel</p>
+                <p>{new Date().toLocaleDateString()}</p>
+              </div>
+              <div className="h-10 w-10 bg-gradient-to-r from-green-400 to-green-500 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold">A</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 transform hover:scale-105 transition-all duration-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Total Coupons</p>
+                <p className="text-3xl font-bold text-gray-900">{stats.total.toLocaleString()}</p>
+              </div>
+              <div className="h-12 w-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <span className="text-2xl">🎫</span>
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-sm text-blue-600 font-medium">
+                {stats.total > 0 ? '📈 System active' : '📊 Ready to start'}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 transform hover:scale-105 transition-all duration-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Active Coupons</p>
+                <p className="text-3xl font-bold text-green-600">{stats.active.toLocaleString()}</p>
+              </div>
+              <div className="h-12 w-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <span className="text-2xl">✅</span>
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-sm text-green-600 font-medium">
+                {stats.total > 0 ? `${((stats.active / stats.total) * 100).toFixed(1)}% available` : '0% available'}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 transform hover:scale-105 transition-all duration-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Used Coupons</p>
+                <p className="text-3xl font-bold text-red-600">{stats.used.toLocaleString()}</p>
+              </div>
+              <div className="h-12 w-12 bg-red-100 rounded-xl flex items-center justify-center">
+                <span className="text-2xl">🔴</span>
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-sm text-red-600 font-medium">
+                {stats.total > 0 ? `${((stats.used / stats.total) * 100).toFixed(1)}% redeemed` : '0% redeemed'}
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 transform hover:scale-105 transition-all duration-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">Scratched</p>
+                <p className="text-3xl font-bold text-purple-600">{stats.scratched.toLocaleString()}</p>
+              </div>
+              <div className="h-12 w-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                <span className="text-2xl">🎯</span>
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="text-sm text-purple-600 font-medium">
+                {stats.total > 0 ? `${((stats.scratched / stats.total) * 100).toFixed(1)}% revealed` : '0% revealed'}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Coupon Generator */}
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
+                <div className="flex items-center space-x-3">
+                  <div className="h-8 w-8 bg-white/20 rounded-lg flex items-center justify-center">
+                    <span className="text-white text-lg">⚡</span>
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-white">Generate Coupons</h2>
+                    <p className="text-indigo-100 text-sm">Create new coupon codes</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      <span className="flex items-center space-x-2">
+                        <span>🔢</span>
+                        <span>Number of Codes</span>
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      value={count}
+                      onChange={(e) => setCount(Number(e.target.value))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50"
+                      min="1"
+                      max="10000"
+                      placeholder="10000"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Maximum: 10,000 codes per batch</p>
+                  </div>
+
+                  <button
+                    onClick={generateCoupons}
+                    disabled={isGenerating}
+                    className={`w-full py-4 px-6 rounded-xl text-white font-semibold text-lg transition-all duration-200 transform ${
+                      isGenerating 
+                        ? 'bg-gray-400 cursor-not-allowed scale-95' 
+                        : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 hover:scale-105 shadow-lg hover:shadow-xl'
+                    }`}
+                  >
+                    {isGenerating ? (
+                      <span className="flex items-center justify-center space-x-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                        <span>Generating...</span>
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center space-x-2">
+                        <span>✨</span>
+                        <span>Generate Coupons</span>
+                      </span>
+                    )}
+                  </button>
+
+                  {generationMessage && (
+                    <div className={`p-4 rounded-xl border-l-4 ${
+                      generationMessage.includes('Error') 
+                        ? 'bg-red-50 border-red-400 text-red-700' 
+                        : 'bg-green-50 border-green-400 text-green-700'
+                    }`}>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg">
+                          {generationMessage.includes('Error') ? '❌' : '🎉'}
+                        </span>
+                        <span className="font-medium">{generationMessage}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Coupons Table */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-gray-600 to-gray-700 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="h-8 w-8 bg-white/20 rounded-lg flex items-center justify-center">
+                      <span className="text-white text-lg">📊</span>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold text-white">All Coupons</h2>
+                      <p className="text-gray-200 text-sm">{filteredCoupons.length} of {coupons.length} coupons</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Filters and Search */}
+              <div className="border-b border-gray-200 p-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      🔍 Search Coupons
+                    </label>
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="Search by code or employee..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      📋 Filter by Status
+                    </label>
+                    <select
+                      value={filterStatus}
+                      onChange={(e) => setFilterStatus(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="active">Active</option>
+                      <option value="used">Used</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      📅 Sort by
+                    </label>
+                    <select
+                      value={`${sortBy}-${sortOrder}`}
+                      onChange={(e) => {
+                        const [field, order] = e.target.value.split('-');
+                        setSortBy(field);
+                        setSortOrder(order);
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      <option value="created_date-desc">Newest First</option>
+                      <option value="created_date-asc">Oldest First</option>
+                      <option value="code-asc">Code A-Z</option>
+                      <option value="code-desc">Code Z-A</option>
+                      <option value="status-asc">Status A-Z</option>
+                      <option value="status-desc">Status Z-A</option>
+                      <option value="used_date-desc">Recently Used</option>
+                      <option value="used_date-asc">Oldest Used</option>
+                      <option value="store_location-asc">Store 1-18</option>
+                      <option value="store_location-desc">Store 18-1</option>
+                      <option value="employee_code-asc">Employee A-Z</option>
+                      <option value="employee_code-desc">Employee Z-A</option>
+                      <option value="is_scratched-desc">Scratched First</option>
+                      <option value="is_scratched-asc">Unscratched First</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {loading ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-2 border-indigo-500 border-t-transparent mx-auto mb-4"></div>
+                    <p className="text-gray-500">Loading coupons...</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th 
+                              onClick={() => handleSort('code')}
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Code</span>
+                                <span className="text-gray-400">
+                                  {sortBy === 'code' ? (
+                                    sortOrder === 'asc' ? '↑' : '↓'
+                                  ) : '↕️'}
+                                </span>
+                              </div>
+                            </th>
+                            <th 
+                              onClick={() => handleSort('status')}
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Status</span>
+                                <span className="text-gray-400">
+                                  {sortBy === 'status' ? (
+                                    sortOrder === 'asc' ? '↑' : '↓'
+                                  ) : '↕️'}
+                                </span>
+                              </div>
+                            </th>
+                            <th 
+                              onClick={() => handleSort('created_date')}
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Created</span>
+                                <span className="text-gray-400">
+                                  {sortBy === 'created_date' ? (
+                                    sortOrder === 'asc' ? '↑' : '↓'
+                                  ) : '↕️'}
+                                </span>
+                              </div>
+                            </th>
+                            <th 
+                              onClick={() => handleSort('used_date')}
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Used</span>
+                                <span className="text-gray-400">
+                                  {sortBy === 'used_date' ? (
+                                    sortOrder === 'asc' ? '↑' : '↓'
+                                  ) : '↕️'}
+                                </span>
+                              </div>
+                            </th>
+                            <th 
+                              onClick={() => handleSort('store_location')}
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Store</span>
+                                <span className="text-gray-400">
+                                  {sortBy === 'store_location' ? (
+                                    sortOrder === 'asc' ? '↑' : '↓'
+                                  ) : '↕️'}
+                                </span>
+                              </div>
+                            </th>
+                            <th 
+                              onClick={() => handleSort('employee_code')}
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Employee</span>
+                                <span className="text-gray-400">
+                                  {sortBy === 'employee_code' ? (
+                                    sortOrder === 'asc' ? '↑' : '↓'
+                                  ) : '↕️'}
+                                </span>
+                              </div>
+                            </th>
+                            <th 
+                              onClick={() => handleSort('is_scratched')}
+                              className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
+                            >
+                              <div className="flex items-center space-x-1">
+                                <span>Scratched</span>
+                                <span className="text-gray-400">
+                                  {sortBy === 'is_scratched' ? (
+                                    sortOrder === 'asc' ? '↑' : '↓'
+                                  ) : '↕️'}
+                                </span>
+                              </div>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {paginatedCoupons.map((coupon) => (
+                            <tr key={coupon.id} className="hover:bg-gray-50 transition-colors">
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <span className="font-mono text-sm font-semibold text-gray-900 bg-gray-100 px-2 py-1 rounded">
+                                  {coupon.code}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap">
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                                  coupon.status === 'active' 
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {coupon.status === 'active' ? '✅' : '🔴'} {coupon.status.toUpperCase()}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {new Date(coupon.created_date).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {coupon.used_date ? new Date(coupon.used_date).toLocaleDateString() : '-'}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {coupon.store_location ? `Store ${coupon.store_location}` : '-'}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                                {coupon.employee_code || '-'}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  coupon.is_scratched 
+                                    ? 'bg-purple-100 text-purple-800'
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {coupon.is_scratched ? '🎯 Yes' : '⭕ No'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-6 pt-6 border-t border-gray-200">
+                        <div className="text-sm text-gray-500">
+                          Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredCoupons.length)} of {filteredCoupons.length} coupons
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                            disabled={currentPage === 1}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                              currentPage === 1
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                            }`}
+                          >
+                            Previous
+                          </button>
+                          <span className="px-3 py-2 text-sm text-gray-700">
+                            Page {currentPage} of {totalPages}
+                          </span>
+                          <button
+                            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                            disabled={currentPage === totalPages}
+                            className={`px-3 py-2 rounded-lg text-sm font-medium ${
+                              currentPage === totalPages
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                            }`}
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
