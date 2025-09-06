@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { validateCoupon, getCouponByCode, initDatabase } from '@/lib/database';
+import { deactivateShopifyDiscount } from '@/lib/shopify';
 
 export async function POST(request) {
   try {
@@ -52,8 +53,12 @@ export async function POST(request) {
     // Proceed with validation
     const result = validateCoupon(code, employeeCode, storeLocation);
     console.log('Validation result:', result);
-    
+
     if (result.success) {
+      if (coupon.shopify_discount_id) {
+        await deactivateShopifyDiscount(coupon.shopify_discount_id);
+      }
+
       // Get updated coupon details
       const updatedCoupon = getCouponByCode(code);
       return NextResponse.json({
