@@ -167,7 +167,7 @@ export async function createShopifyDiscount(couponCode) {
     };
   }
 }
-
+ 
 export async function getShopifyDiscountStatus(discountId) {
   try {
     if (!discountId) throw new Error('No discount ID provided');
@@ -192,34 +192,4 @@ export async function getShopifyDiscountStatus(discountId) {
     return { success: false, message: error.message };
   }
 }
-
-export async function deactivateShopifyDiscount(discountId) {
-  try {
-    if (!discountId) {
-      throw new Error('No discount ID provided');
-    }
-
-    const mutation = `
-      mutation discountDeactivate($id: ID!) {
-        discountDeactivate(id: $id) {
-          codeDiscountNode { id }
-          userErrors { field message }
-        }
-      }
-    `;
-
-    const response = await client.request(mutation, {
-      variables: { id: discountId }
-    });
-
-    const errors = response.data?.discountDeactivate?.userErrors;
-    if (errors && errors.length > 0) {
-      throw new Error(errors.map(e => e.message).join(', '));
-    }
-
-    return { success: true };
-  } catch (error) {
-    console.error('❌ Shopify discount deactivation error:', error);
-    return { success: false, message: error.message };
-  }
-}
+ 
