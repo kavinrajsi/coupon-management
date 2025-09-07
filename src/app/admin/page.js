@@ -17,7 +17,7 @@ export default function AdminPanel() {
   const [isSyncingStatus, setIsSyncingStatus] = useState(false);
   const [syncStatusMessage, setSyncStatusMessage] = useState('');
 
-  const itemsPerPage = 20;
+  const itemsPerPage = 1000;
 
   useEffect(() => {
     fetchCoupons();
@@ -640,22 +640,6 @@ export default function AdminPanel() {
                                     : 'bg-gray-100 text-gray-800'
                                 }`}>
                                   {coupon.is_scratched ? '🎯 Yes' : '⭕ No'}
-                                </span>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                  !coupon.shopify_discount_id 
-                                    ? 'bg-gray-100 text-gray-800'
-                                    : coupon.shopify_status === 'active'
-                                    ? 'bg-green-100 text-green-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                  {!coupon.shopify_discount_id 
-                                    ? '⭕ Not Synced' 
-                                    : coupon.shopify_status === 'active'
-                                    ? '🟢 Active'
-                                    : '🔴 Disabled'
-                                  }
                                 </span>
                               </td>
                             </tr>
