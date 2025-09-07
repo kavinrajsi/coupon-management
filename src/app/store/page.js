@@ -208,6 +208,27 @@ export default function StorePanel() {
 
               {/* Form Content */}
               <div className="p-8">
+
+                {/* Success/Error Message */}
+                {message && (
+                  <div
+                    className={`mt-6 p-4 rounded-xl border-l-4 ${
+                      message.includes("Error") ||
+                      message.includes("not") ||
+                      message.includes("already")
+                        ? "bg-red-50 border-red-400 text-red-700"
+                        : "bg-green-50 border-green-400 text-green-700"
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <span className="text-lg">
+                        {message.includes("Error") ? "❌" : "✅"}
+                      </span>
+                      <span className="font-medium">{message}</span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="space-y-6">
                   {/* Coupon Code Input */}
                   <div className="space-y-2">
@@ -307,25 +328,6 @@ export default function StorePanel() {
                   </div>
                 </div>
 
-                {/* Success/Error Message */}
-                {message && (
-                  <div
-                    className={`mt-6 p-4 rounded-xl border-l-4 ${
-                      message.includes("Error") ||
-                      message.includes("not") ||
-                      message.includes("already")
-                        ? "bg-red-50 border-red-400 text-red-700"
-                        : "bg-green-50 border-green-400 text-green-700"
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <span className="text-lg">
-                        {message.includes("Error") ? "❌" : "✅"}
-                      </span>
-                      <span className="font-medium">{message}</span>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           </div>
