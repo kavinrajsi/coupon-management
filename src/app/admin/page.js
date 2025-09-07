@@ -459,8 +459,8 @@ export default function AdminPanel() {
                         <div>
                           <p className="font-medium text-blue-800">Shopify Integration</p>
                           <p className="text-sm text-blue-600 mt-1">
-                            Use "Create Discounts" to add new coupons to Shopify.<br/>
-                            Use "Sync Status" to check for changes made in Shopify admin.
+                            Use &quot;Create Discounts&quot; to add new coupons to Shopify.<br/>
+                            Use &quot;Sync Status&quot; to check for changes made in Shopify admin.
                           </p>
                         </div>
                       </div>

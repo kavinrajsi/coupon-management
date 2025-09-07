@@ -15,7 +15,7 @@ export default function CustomerPanel() {
     fetchCoupons();
   }, []);
 
-   const fetchCoupons = async () => {
+  const fetchCoupons = async () => {
     try {
       setLoading(true);
       const response = await fetch('/api/coupons');
@@ -37,7 +37,8 @@ export default function CustomerPanel() {
     }
   };
 
-    const copyToClipboard = async (code) => {
+  // ✅ Single copyToClipboard function (removed duplicate)
+  const copyToClipboard = async (code) => {
     const url = `${window.location.origin}/view/${code}`;
     try {
       await navigator.clipboard.writeText(url);
@@ -56,7 +57,6 @@ export default function CustomerPanel() {
       setTimeout(() => setCopiedCode(''), 2000);
     }
   };
-
 
   // Handle column sorting
   const handleSort = (column) => {
@@ -98,25 +98,6 @@ export default function CustomerPanel() {
   );
 
   const totalPages = Math.ceil(sortedCoupons.length / itemsPerPage);
-
-  const copyToClipboard = async (code) => {
-    const url = `${window.location.origin}/view/${code}`;
-    try {
-      await navigator.clipboard.writeText(url);
-      setCopiedCode(code);
-      setTimeout(() => setCopiedCode(''), 2000);
-    } catch (error) {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = url;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setCopiedCode(code);
-      setTimeout(() => setCopiedCode(''), 2000);
-    }
-  };
 
   const stats = {
     total: coupons.length,

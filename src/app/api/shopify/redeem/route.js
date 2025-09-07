@@ -1,17 +1,17 @@
 import { NextResponse } from 'next/server';
 import { validateCoupon, getCouponByCode, initDatabase } from '@/lib/supabase';
-import { deactivateShopifyDiscount } from '@/lib/shopify';
+import { disableShopifyDiscount } from '@/lib/shopify'; // Fixed import name
 
 export async function POST(request) {
   try {
-    initDatabase();
+    await initDatabase(); // Added await
     const { code } = await request.json();
 
     if (!code) {
       return NextResponse.json({ success: false, message: 'Coupon code is required' }, { status: 400 });
     }
 
-    const coupon = getCouponByCode(code);
+    const coupon = await getCouponByCode(code); // Added await
     if (!coupon) {
       return NextResponse.json({ success: false, message: 'Coupon not found' }, { status: 404 });
     }
@@ -19,12 +19,12 @@ export async function POST(request) {
       return NextResponse.json({ success: false, message: 'Coupon is not active', couponDetails: coupon }, { status: 400 });
     }
 
-    const result = validateCoupon(code, 'SHOPIFY', 0);
+    const result = await validateCoupon(code, 'SHOPIFY', 0); // Added await
     if (result.success && coupon.shopify_discount_id) {
-      await deactivateShopifyDiscount(coupon.shopify_discount_id);
+      await disableShopifyDiscount(coupon.shopify_discount_id); // Fixed function name and added await
     }
 
-    const updatedCoupon = getCouponByCode(code);
+    const updatedCoupon = await getCouponByCode(code); // Added await
     return NextResponse.json({ ...result, couponDetails: updatedCoupon });
   } catch (error) {
     console.error('Shopify redeem API error:', error);
