@@ -6,7 +6,6 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "init-db": "node src/lib/init-db.js",
     "lint": "eslint"
   },
   "dependencies": {
