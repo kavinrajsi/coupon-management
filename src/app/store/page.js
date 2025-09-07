@@ -212,7 +212,7 @@ export default function StorePanel() {
                 {/* Success/Error Message */}
                 {message && (
                   <div
-                    className={`mt-6 p-4 rounded-xl border-l-4 ${
+                    className={`mb-6 p-4 rounded-xl border-l-4 ${
                       message.includes("Error") ||
                       message.includes("not") ||
                       message.includes("already")

@@ -489,13 +489,6 @@ export default function AdminPanel() {
                 </div>
               </div>
 
-              {/* Simple instruction instead of filters */}
-              <div className="border-b border-gray-200 p-6">
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Click any column header to sort the data</p>
-                </div>
-              </div>
-
               <div className="p-6">
                 {loading ? (
                   <div className="text-center py-12">
