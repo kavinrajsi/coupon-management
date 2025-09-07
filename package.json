@@ -6,11 +6,19 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "webhook:setup": "node scripts/setup-webhooks.js",
+    "webhook:setup-clean": "node scripts/setup-webhooks.js --delete-existing",
+    "webhook:test": "node scripts/test-webhooks.js",
+    "webhook:test-prod": "node scripts/test-webhooks.js --endpoint $WEBHOOK_BASE_URL/api/webhooks/shopify",
+    "webhook:list": "node scripts/setup-webhooks.js --list-only",
+    "webhook:cleanup": "node scripts/setup-webhooks.js --cleanup"
   },
   "dependencies": {
     "@shopify/admin-api-client": "^1.1.1",
     "@supabase/supabase-js": "^2.57.2",
+    "dotenv": "^17.2.2",
+    "lucide-react": "^0.542.0",
     "next": "15.5.2",
     "react": "19.1.0",
     "react-dom": "19.1.0"
