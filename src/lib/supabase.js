@@ -119,7 +119,15 @@ export async function getAllCoupons() {
       .order('created_date', { ascending: false });
     
     if (error) throw error;
-    return data;
+    
+    // Ensure all coupons have a valid status
+    const processedData = (data || []).map(coupon => ({
+      ...coupon,
+      status: coupon.status || 'active', // Default to 'active' if status is null/undefined
+      shopify_status: coupon.shopify_status || 'active'
+    }));
+    
+    return processedData;
   } catch (error) {
     console.error('❌ Error fetching coupons:', error);
     throw error;
@@ -136,7 +144,18 @@ export async function getCouponByCode(code) {
       .single();
     
     if (error && error.code !== 'PGRST116') throw error; // PGRST116 = not found
-    return data;
+    
+    if (!data) return null;
+    
+    // Ensure the coupon has a valid status
+    const processedCoupon = {
+      ...data,
+      status: data.status || 'active', // Default to 'active' if status is null/undefined
+      shopify_status: data.shopify_status || 'active'
+    };
+    
+    console.log('📋 Retrieved coupon with processed status:', processedCoupon);
+    return processedCoupon;
   } catch (error) {
     console.error('❌ Error fetching coupon:', error);
     throw error;
@@ -153,7 +172,15 @@ export async function getCouponByShopifyId(shopifyId) {
       .single();
     
     if (error && error.code !== 'PGRST116') throw error;
-    return data;
+    
+    if (!data) return null;
+    
+    // Ensure the coupon has a valid status
+    return {
+      ...data,
+      status: data.status || 'active',
+      shopify_status: data.shopify_status || 'active'
+    };
   } catch (error) {
     console.error('❌ Error fetching coupon by Shopify ID:', error);
     throw error;
@@ -227,6 +254,7 @@ export async function getCouponsNeedingSync() {
     return [];
   }
 }
+
 // Validate and use coupon
 export async function validateCoupon(code, employeeCode, storeLocation) {
   try {
@@ -238,7 +266,10 @@ export async function validateCoupon(code, employeeCode, storeLocation) {
       return { success: false, message: 'Coupon not found' };
     }
     
-    if (coupon.status !== 'active') {
+    // Ensure coupon has a valid status
+    const currentStatus = coupon.status || 'active';
+    
+    if (currentStatus !== 'active') {
       return { success: false, message: 'Coupon is not active' };
     }
     

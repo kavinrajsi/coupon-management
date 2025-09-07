@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { validateCoupon, getCouponByCode, initDatabase } from '@/lib/supabase';
-import { disableShopifyDiscount } from '@/lib/shopify';  // ✅ Fixed import
+import { disableShopifyDiscount } from '@/lib/shopify';
 
 export async function POST(request) {
   try {
-    initDatabase();
+    await initDatabase();
     
     const body = await request.json();
     console.log('Received request body:', body);
@@ -19,7 +19,7 @@ export async function POST(request) {
     }
 
     // First, get the coupon details for debugging
-    let coupon = getCouponByCode(code);
+    let coupon = await getCouponByCode(code);
     console.log('Coupon found:', coupon);
 
     if (!coupon) {
@@ -30,14 +30,30 @@ export async function POST(request) {
       });
     }
 
-    // Return detailed information about why validation failed
-    if (coupon.status !== 'active') {
+    // Check if status is null/undefined and provide better error message
+    if (!coupon.status) {
+      console.warn(`⚠️ Coupon ${code} has null/undefined status, treating as inactive`);
       return NextResponse.json({
         success: false,
-        message: `Coupon is not active. Current status: "${coupon.status}". ${
-          coupon.status === 'used' ? 'This coupon has already been used.' : 
-          'This coupon is inactive.'
-        }`,
+        message: `Coupon "${code}" has an invalid status in the database. Please contact system administrator.`,
+        couponDetails: {
+          ...coupon,
+          status: coupon.status || 'unknown'
+        }
+      });
+    }
+
+    // Return detailed information about why validation failed
+    if (coupon.status !== 'active') {
+      const statusMessage = coupon.status === 'used' 
+        ? 'This coupon has already been used.' 
+        : coupon.status === 'inactive'
+        ? 'This coupon has been deactivated.'
+        : `This coupon has status: "${coupon.status}".`;
+        
+      return NextResponse.json({
+        success: false,
+        message: `Coupon is not active. Current status: "${coupon.status}". ${statusMessage}`,
         couponDetails: coupon
       });
     }
@@ -51,20 +67,19 @@ export async function POST(request) {
     }
     
     // Check Shopify status first
-if (coupon.shopify_discount_id) {
-  const { checkAndSyncSpecificCoupon } = await import('@/lib/shopify');
-  const statusCheck = await checkAndSyncSpecificCoupon(code);
-  
-  if (statusCheck.success && statusCheck.updated) {
-    console.log(`📋 Updated coupon status from Shopify: ${statusCheck.message}`);
-    // Refresh coupon data
-    coupon = getCouponByCode(code);
-  }
-}
-
+    if (coupon.shopify_discount_id) {
+      const { checkAndSyncSpecificCoupon } = await import('@/lib/shopify');
+      const statusCheck = await checkAndSyncSpecificCoupon(code);
+      
+      if (statusCheck.success && statusCheck.updated) {
+        console.log(`📋 Updated coupon status from Shopify: ${statusCheck.message}`);
+        // Refresh coupon data
+        coupon = await getCouponByCode(code);
+      }
+    }
 
     // Proceed with validation
-    const result = validateCoupon(code, employeeCode, storeLocation);
+    const result = await validateCoupon(code, employeeCode, storeLocation);
     console.log('Validation result:', result);
     
     if (result.success) {
@@ -73,13 +88,13 @@ if (coupon.shopify_discount_id) {
         console.log(`🔒 Auto-disabling Shopify discount for used coupon: ${code}`);
         
         try {
-          const shopifyResult = await disableShopifyDiscount(result.coupon.shopify_discount_id);  // ✅ Fixed function call
+          const shopifyResult = await disableShopifyDiscount(result.coupon.shopify_discount_id);
           
           if (shopifyResult.success) {
             console.log('✅ Successfully disabled coupon in Shopify');
             // Update database to reflect Shopify status
-            const { updateShopifyStatus } = await import('@/lib/database');
-            updateShopifyStatus(code, 'disabled');
+            const { updateShopifyStatus } = await import('@/lib/supabase');
+            await updateShopifyStatus(code, 'disabled');
             
             result.shopifyDisabled = true;
             result.message += ' (Also disabled in Shopify)';
@@ -96,7 +111,7 @@ if (coupon.shopify_discount_id) {
       }
       
       // Get updated coupon details
-      const updatedCoupon = getCouponByCode(code);
+      const updatedCoupon = await getCouponByCode(code);
       return NextResponse.json({
         ...result,
         couponDetails: updatedCoupon

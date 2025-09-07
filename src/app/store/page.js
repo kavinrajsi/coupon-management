@@ -245,25 +245,29 @@ export default function StorePanel() {
                     <div className="grid grid-cols-2 gap-4 text-sm">
                       <div>
                         <span className="text-blue-600 font-medium">Code:</span>
-                        <p className="font-mono text-lg font-bold text-gray-800">{couponDetails.code}</p>
+                        <p className="font-mono text-lg font-bold text-gray-800">{couponDetails.code || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-blue-600 font-medium">Status:</span>
                         <p className={`font-semibold ${couponDetails.status === 'used' ? 'text-red-600' : 'text-green-600'}`}>
-                          {couponDetails.status.toUpperCase()}
+                          {couponDetails.status ? couponDetails.status.toUpperCase() : 'UNKNOWN'}
                         </p>
                       </div>
                       <div>
                         <span className="text-blue-600 font-medium">Employee:</span>
-                        <p className="font-semibold text-gray-800">{couponDetails.employee_code}</p>
+                        <p className="font-semibold text-gray-800">{couponDetails.employee_code || 'N/A'}</p>
                       </div>
                       <div>
                         <span className="text-blue-600 font-medium">Store:</span>
-                        <p className="font-semibold text-gray-800">Store {couponDetails.store_location}</p>
+                        <p className="font-semibold text-gray-800">
+                          {couponDetails.store_location ? `Store ${couponDetails.store_location}` : 'N/A'}
+                        </p>
                       </div>
                       <div className="col-span-2">
                         <span className="text-blue-600 font-medium">Validated:</span>
-                        <p className="text-gray-700">{couponDetails.used_date ? new Date(couponDetails.used_date).toLocaleString() : 'Not used yet'}</p>
+                        <p className="text-gray-700">
+                          {couponDetails.used_date ? new Date(couponDetails.used_date).toLocaleString() : 'Not used yet'}
+                        </p>
                       </div>
                     </div>
                   </div>

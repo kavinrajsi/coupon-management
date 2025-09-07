@@ -4,9 +4,10 @@ import { createShopifyDiscount } from '@/lib/shopify';
 
 export async function POST(request) {
   try {
-    initDatabase();
+    // ✅ Added await
+    await initDatabase();
     
-      const { count = 10000, syncToShopify = true } = await request.json();
+    const { count = 10000, syncToShopify = true } = await request.json();
     
     // Validate request count
     if (count < 1 || count > 10000) {
@@ -16,8 +17,8 @@ export async function POST(request) {
       }, { status: 400 });
     }
     
-    // Check existing coupons in database
-    const existingCoupons = getAllCoupons();
+    // ✅ Added await - Check existing coupons in database
+    const existingCoupons = await getAllCoupons();
     const existingCount = existingCoupons.length;
     
     // Check if adding new codes would exceed 10,000 total
@@ -43,7 +44,8 @@ export async function POST(request) {
       }, { status: 400 });
     }
     
-    const generatedCount = generateCoupons(count);
+    // ✅ Added await - Generate the coupons
+    const generatedCount = await generateCoupons(count);
     
     let shopifyMessage = '';
     if (syncToShopify && generatedCount > 0) {
@@ -51,19 +53,22 @@ export async function POST(request) {
       shopifyMessage = ' (Shopify sync will begin shortly)';
     }
     
+    // ✅ Fixed calculation - now both values are numbers
+    const newTotalInDatabase = existingCount + generatedCount;
+    
     return NextResponse.json({
       success: true,
       message: `Generated ${generatedCount} coupon codes${shopifyMessage}`,
       count: generatedCount,
-      totalInDatabase: existingCount + generatedCount,
+      totalInDatabase: newTotalInDatabase,
       shopifySyncEnabled: syncToShopify
     });
   } catch (error) {
+    console.error('❌ Generate coupons API error:', error);
     return NextResponse.json({
       success: false,
       message: 'Error generating coupons',
       error: error.message
     }, { status: 500 });
   }
-
 }
