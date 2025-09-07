@@ -148,11 +148,11 @@ async function handleOrderCreated(orderData) {
           continue;
         }
         
-        // Mark coupon as used - using order reference as store location
+        // Mark coupon as used - use "Online Shopify" as a valid store location
         const validationResult = await validateCoupon(
           couponCode, 
           'SHOPIFY_ORDER', 
-          `Order ${orderNumber}`
+          'Online Shopify'
         );
         
         if (validationResult.success) {
