@@ -438,7 +438,6 @@ export async function syncShopifyStatusToLocal() {
       }
 
       // Map Shopify status to local status
-      let localStatus;
       let localShopifyStatus;
       
       switch (shopifyStatus) {
@@ -481,11 +480,11 @@ export async function checkAndSyncSpecificCoupon(couponCode) {
   try {
     console.log(`🔍 Checking Shopify status for coupon: ${couponCode}`);
     
-    // Import database functions
-    const { getCouponByCode, updateShopifyStatus } = await import('./database.js');
+    // Import database functions from supabase
+    const { getCouponByCode, updateShopifyStatus } = await import('./supabase.js');
     
     // Get local coupon
-    const localCoupon = getCouponByCode(couponCode);
+    const localCoupon = await getCouponByCode(couponCode);
     
     if (!localCoupon || !localCoupon.shopify_discount_id) {
       return {
@@ -523,12 +522,12 @@ export async function checkAndSyncSpecificCoupon(couponCode) {
     if (localCoupon.shopify_status !== newLocalStatus) {
       console.log(`🔄 Updating local status for ${couponCode}: ${localCoupon.shopify_status} → ${newLocalStatus}`);
       
-      updateShopifyStatus(couponCode, newLocalStatus);
+      await updateShopifyStatus(couponCode, newLocalStatus);
       
       // If Shopify is disabled and local coupon is still active, deactivate locally too
       if (newLocalStatus === 'disabled' && localCoupon.status === 'active') {
-        const { deactivateLocalCoupon } = await import('./database.js');
-        deactivateLocalCoupon(couponCode, 'Deactivated due to Shopify sync');
+        const { deactivateLocalCoupon } = await import('./supabase.js');
+        await deactivateLocalCoupon(couponCode, 'Deactivated due to Shopify sync');
       }
       
       return {
@@ -554,7 +553,6 @@ export async function checkAndSyncSpecificCoupon(couponCode) {
     };
   }
 }
-
 
 export async function testShopifyConnection() {
   try {
