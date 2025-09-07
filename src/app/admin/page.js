@@ -17,7 +17,7 @@ export default function AdminPanel() {
   const [isSyncingStatus, setIsSyncingStatus] = useState(false);
   const [syncStatusMessage, setSyncStatusMessage] = useState('');
 
-  const itemsPerPage = 20;
+  const itemsPerPage = 1000;
 
   useEffect(() => {
     fetchCoupons();
@@ -489,11 +489,6 @@ export default function AdminPanel() {
               </div>
 
               {/* Simple instruction instead of filters */}
-              <div className="border-b border-gray-200 p-6">
-                <div className="text-center">
-                  <p className="text-sm text-gray-600">Click any column header to sort the data</p>
-                </div>
-              </div>
 
               <div className="p-6">
                 {loading ? (
