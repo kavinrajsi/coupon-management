@@ -410,4 +410,179 @@ export async function syncCouponsWithShopify(shopifyDiscounts) {
   }
 }
 
+// Mark coupon as used from Shopify order
+export async function markCouponUsedFromOrder(couponCode, orderReference = 'SHOPIFY_ORDER') {
+  try {
+    console.log(`🛒 Marking coupon ${couponCode} as used from order: ${orderReference}`);
+    
+    const coupon = await getCouponByCode(couponCode);
+    
+    if (!coupon) {
+      return { 
+        success: false, 
+        message: 'Coupon not found in database',
+        code: couponCode
+      };
+    }
+    
+    if (coupon.status !== 'active') {
+      return { 
+        success: false, 
+        message: `Coupon is not active. Current status: ${coupon.status}`,
+        code: couponCode,
+        currentStatus: coupon.status
+      };
+    }
+    
+    if (coupon.used_date) {
+      return { 
+        success: false, 
+        message: 'Coupon already used',
+        code: couponCode,
+        usedDate: coupon.used_date
+      };
+    }
+
+    // Mark coupon as used
+    const { data, error } = await supabaseAdmin
+      .from('coupons')
+      .update({
+        status: 'used',
+        used_date: new Date().toISOString(),
+        employee_code: orderReference,
+        store_location: 'Online Store'
+      })
+      .eq('code', couponCode)
+      .eq('status', 'active') // Double-check it's still active
+      .select();
+    
+    if (error) throw error;
+    
+    if (data && data.length > 0) {
+      console.log(`✅ Successfully marked coupon ${couponCode} as used`);
+      
+      // Also disable in Shopify if it has a Shopify ID
+      if (coupon.shopify_discount_id) {
+        try {
+          const { disableShopifyDiscount } = await import('./shopify.js');
+          const shopifyResult = await disableShopifyDiscount(coupon.shopify_discount_id);
+          
+          if (shopifyResult.success) {
+            console.log(`🔒 Also disabled coupon ${couponCode} in Shopify`);
+            await updateShopifyStatus(couponCode, 'disabled');
+          }
+        } catch (shopifyError) {
+          console.warn(`⚠️ Failed to disable coupon in Shopify:`, shopifyError);
+        }
+      }
+      
+      return {
+        success: true,
+        message: 'Coupon marked as used successfully',
+        code: couponCode,
+        usedDate: data[0].used_date,
+        orderReference
+      };
+    } else {
+      return {
+        success: false,
+        message: 'No rows were updated - coupon may have been used by another process',
+        code: couponCode
+      };
+    }
+    
+  } catch (error) {
+    console.error(`❌ Error marking coupon ${couponCode} as used:`, error);
+    return {
+      success: false,
+      message: `Database error: ${error.message}`,
+      code: couponCode
+    };
+  }
+}
+
+// Batch process multiple coupons from an order
+export async function markMultipleCouponsUsedFromOrder(couponCodes, orderReference) {
+  try {
+    console.log(`🛒 Processing ${couponCodes.length} coupons from order: ${orderReference}`);
+    
+    const results = [];
+    let successCount = 0;
+    
+    for (const couponCode of couponCodes) {
+      const result = await markCouponUsedFromOrder(couponCode, orderReference);
+      results.push(result);
+      
+      if (result.success) {
+        successCount++;
+      }
+      
+      // Add small delay to prevent overwhelming the database
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    return {
+      success: true,
+      message: `Processed ${successCount}/${couponCodes.length} coupons successfully`,
+      orderReference,
+      totalProcessed: couponCodes.length,
+      successCount,
+      results
+    };
+    
+  } catch (error) {
+    console.error(`❌ Error processing multiple coupons:`, error);
+    return {
+      success: false,
+      message: error.message,
+      orderReference
+    };
+  }
+}
+
+// Get coupon usage statistics
+export async function getCouponUsageStats(timeframe = '24 hours') {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('coupons')
+      .select('store_location, used_date, employee_code')
+      .eq('status', 'used')
+      .gte('used_date', new Date(Date.now() - (timeframe === '24 hours' ? 86400000 : 604800000)).toISOString())
+      .order('used_date', { ascending: false });
+    
+    if (error) throw error;
+    
+    // Group by store location
+    const stats = data.reduce((acc, coupon) => {
+      const location = coupon.store_location || 'Unknown';
+      if (!acc[location]) {
+        acc[location] = { total: 0, online: 0, inStore: 0 };
+      }
+      acc[location].total++;
+      
+      if (coupon.employee_code?.includes('SHOPIFY') || coupon.employee_code?.includes('ORDER')) {
+        acc[location].online++;
+      } else {
+        acc[location].inStore++;
+      }
+      
+      return acc;
+    }, {});
+    
+    return {
+      success: true,
+      timeframe,
+      totalUsed: data.length,
+      stats
+    };
+    
+  } catch (error) {
+    console.error('❌ Error getting usage stats:', error);
+    return {
+      success: false,
+      message: error.message
+    };
+  }
+}
+
 export default supabaseAdmin;
