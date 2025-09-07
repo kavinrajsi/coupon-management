@@ -1,8 +1,9 @@
+// src/app/api/webhooks/shopify/route.js
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import crypto from 'crypto';
-import { getCouponByShopifyId, updateShopifyStatus, deactivateLocalCoupon, initDatabase, getCouponByCode, updateShopifySync } from '@/lib/supabase';
-import { getShopifyDiscountStatus } from '@/lib/shopify';
+import { getCouponByCode, getCouponByShopifyId, validateCoupon, initDatabase, updateShopifyStatus, deactivateLocalCoupon } from '@/lib/supabase';
+import { disableShopifyDiscount } from '@/lib/shopify';
 
 // Verify webhook signature
 function verifyShopifyWebhook(payload, signature, secret) {
@@ -22,15 +23,14 @@ export async function POST(request) {
   try {
     await initDatabase();
     
-    // Fix: Await headers() call
+    // Get headers
     const headersList = await headers();
     const shopifyTopic = headersList.get('X-Shopify-Topic');
-    const shopifyShop = headersList.get('X-Shopify-Shop-Domain');
     const shopifySignature = headersList.get('X-Shopify-Hmac-Sha256');
     
     console.log('📋 Webhook details:', {
       topic: shopifyTopic,
-      shop: shopifyShop,
+      shop: headersList.get('X-Shopify-Shop-Domain'),
       hasSignature: !!shopifySignature,
       userAgent: headersList.get('User-Agent')
     });
@@ -64,6 +64,7 @@ export async function POST(request) {
 
     // Handle different webhook topics
     switch (shopifyTopic) {
+      // Discount-related webhooks
       case 'discount_codes/create':
       case 'discounts/create':
         return handleDiscountCreate(webhookData);
@@ -75,6 +76,14 @@ export async function POST(request) {
       case 'discount_codes/delete':
       case 'discounts/delete':
         return handleDiscountDelete(webhookData);
+      
+      // Order-related webhooks
+      case 'orders/create':
+      case 'orders/paid':
+        return handleOrderCreated(webhookData);
+      
+      case 'orders/updated':
+        return handleOrderUpdated(webhookData);
       
       default:
         console.log(`⚠️ Unhandled webhook topic: ${shopifyTopic}`);
@@ -95,45 +104,145 @@ export async function POST(request) {
   }
 }
 
-// Extract coupon code from discount title (fallback method)
-function extractCouponCodeFromTitle(title) {
-  // Pattern: "Coupon Discount ABC123" -> extract "ABC123"
-  const match = title?.match(/Coupon Discount ([A-Z]{3}\d{3})/);
-  return match ? match[1] : null;
-}
-
-// Get coupon code by fetching full discount details from Shopify
-async function getCouponCodeFromShopify(discountId) {
+// ORDER WEBHOOK HANDLERS
+// Handle order creation/payment
+async function handleOrderCreated(orderData) {
   try {
-    console.log(`🔍 Fetching discount details from Shopify: ${discountId}`);
+    console.log('🆕 Processing order creation/payment webhook');
     
-    const discountDetails = await getShopifyDiscountStatus(discountId);
+    const orderId = orderData.id;
+    const orderNumber = orderData.order_number || orderData.name;
+    const discountApplications = orderData.discount_applications || [];
     
-    if (discountDetails.success && discountDetails.discount) {
-      const codes = discountDetails.discount.codes?.nodes;
-      if (codes && codes.length > 0) {
-        const couponCode = codes[0].code;
-        console.log(`✅ Found coupon code from Shopify API: ${couponCode}`);
-        return couponCode;
+    console.log(`📦 Order ${orderNumber} (${orderId}) with ${discountApplications.length} discounts`);
+    
+    let processedCoupons = 0;
+    const results = [];
+    
+    // Process each discount application
+    for (const discount of discountApplications) {
+      if (discount.type === 'discount_code') {
+        const couponCode = discount.code;
+        console.log(`🎫 Processing coupon: ${couponCode}`);
+        
+        // Check if coupon exists in our system
+        const localCoupon = await getCouponByCode(couponCode);
+        
+        if (!localCoupon) {
+          console.warn(`⚠️ Coupon ${couponCode} not found in local database`);
+          results.push({
+            code: couponCode,
+            success: false,
+            message: 'Coupon not found in local database'
+          });
+          continue;
+        }
+        
+        if (localCoupon.status === 'used') {
+          console.log(`ℹ️ Coupon ${couponCode} already marked as used`);
+          results.push({
+            code: couponCode,
+            success: true,
+            message: 'Coupon already marked as used'
+          });
+          continue;
+        }
+        
+        // Mark coupon as used - using order reference as store location
+        const validationResult = await validateCoupon(
+          couponCode, 
+          'SHOPIFY_ORDER', 
+          `Order ${orderNumber}`
+        );
+        
+        if (validationResult.success) {
+          console.log(`✅ Marked coupon ${couponCode} as used for order ${orderNumber}`);
+          processedCoupons++;
+          
+          // Also disable the discount in Shopify to prevent reuse
+          if (localCoupon.shopify_discount_id) {
+            try {
+              const shopifyResult = await disableShopifyDiscount(localCoupon.shopify_discount_id);
+              if (shopifyResult.success) {
+                console.log(`🔒 Also disabled coupon ${couponCode} in Shopify`);
+                await updateShopifyStatus(couponCode, 'disabled');
+              }
+            } catch (shopifyError) {
+              console.warn(`⚠️ Failed to disable coupon ${couponCode} in Shopify:`, shopifyError);
+            }
+          }
+          
+          results.push({
+            code: couponCode,
+            success: true,
+            message: `Marked as used for order ${orderNumber}`,
+            shopifyDisabled: !!localCoupon.shopify_discount_id
+          });
+        } else {
+          console.error(`❌ Failed to mark coupon ${couponCode} as used:`, validationResult.message);
+          results.push({
+            code: couponCode,
+            success: false,
+            message: validationResult.message
+          });
+        }
       }
     }
     
-    console.warn('⚠️ No coupon code found in Shopify discount details');
-    return null;
+    return NextResponse.json({
+      success: true,
+      message: `Processed order ${orderNumber}: ${processedCoupons} coupons marked as used`,
+      orderId,
+      orderNumber,
+      processedCoupons,
+      results
+    });
+    
   } catch (error) {
-    console.error('❌ Error fetching discount details from Shopify:', error);
-    return null;
+    console.error('❌ Error handling order creation:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
 
+// Handle order updates
+async function handleOrderUpdated(orderData) {
+  try {
+    console.log('🔄 Processing order update webhook');
+    
+    // For order updates, we mainly care about payment status changes
+    const orderId = orderData.id;
+    const orderNumber = orderData.order_number || orderData.name;
+    const financialStatus = orderData.financial_status;
+    const discountApplications = orderData.discount_applications || [];
+    
+    console.log(`📦 Order ${orderNumber} updated - Financial Status: ${financialStatus}`);
+    
+    // Only process if order is paid and has discount codes
+    if (financialStatus === 'paid' && discountApplications.length > 0) {
+      return handleOrderCreated(orderData); // Reuse the same logic
+    }
+    
+    return NextResponse.json({
+      success: true,
+      message: `Order ${orderNumber} update processed - no action needed`,
+      financialStatus
+    });
+    
+  } catch (error) {
+    console.error('❌ Error handling order update:', error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
+// DISCOUNT WEBHOOK HANDLERS
 // Handle discount creation
 async function handleDiscountCreate(discountData) {
   try {
     console.log('🆕 Processing discount creation webhook');
     
+    // Extract coupon information
     const discountId = discountData.admin_graphql_api_id || `gid://shopify/DiscountCodeNode/${discountData.id}`;
     let couponCode = discountData.code;
-    const status = discountData.status || 'enabled';
     
     // If no direct code, try to extract from title
     if (!couponCode && discountData.title) {
@@ -141,35 +250,39 @@ async function handleDiscountCreate(discountData) {
       console.log(`📝 Extracted code from title: ${couponCode}`);
     }
     
-    // If still no code, fetch from Shopify API
     if (!couponCode) {
-      couponCode = await getCouponCodeFromShopify(discountId);
-    }
-    
-    if (!couponCode) {
-      console.warn('⚠️ No coupon code found in webhook data or Shopify API');
+      console.warn('⚠️ No coupon code found in discount creation webhook');
       return NextResponse.json({
         success: true,
         message: 'Webhook processed but no coupon code found'
       });
     }
     
-    console.log(`📝 New discount: ${couponCode} (${discountId}) - Status: ${status}`);
+    console.log(`📝 Created discount: ${couponCode} (${discountId})`);
     
-    // Find local coupon by code and update Shopify ID if missing
+    // Check if we have this coupon in our local database
     const localCoupon = await getCouponByCode(couponCode);
     
-    if (localCoupon && !localCoupon.shopify_discount_id) {
-      console.log(`🔗 Linking local coupon ${couponCode} to Shopify ID ${discountId}`);
-      await updateShopifySync(couponCode, discountId, true, status === 'ACTIVE' ? 'active' : 'disabled');
-    } else if (!localCoupon) {
-      console.warn(`⚠️ Local coupon not found for ${couponCode}`);
+    if (localCoupon) {
+      // Update the Shopify ID if we have the coupon locally
+      console.log(`🔗 Linking local coupon ${couponCode} to Shopify discount ${discountId}`);
+      
+      await updateShopifyStatus(couponCode, 'active', discountId);
+      
+      return NextResponse.json({
+        success: true,
+        message: `Linked local coupon ${couponCode} to Shopify discount`,
+        action: 'linked'
+      });
+    } else {
+      console.log(`ℹ️ Discount ${couponCode} created in Shopify but not found locally`);
+      
+      return NextResponse.json({
+        success: true,
+        message: `Discount ${couponCode} noted but not managed locally`,
+        action: 'noted'
+      });
     }
-    
-    return NextResponse.json({
-      success: true,
-      message: `Processed discount creation: ${couponCode}`
-    });
     
   } catch (error) {
     console.error('❌ Error handling discount creation:', error);
@@ -177,24 +290,18 @@ async function handleDiscountCreate(discountData) {
   }
 }
 
-// Handle discount updates (status changes)
+// Handle discount updates
 async function handleDiscountUpdate(discountData) {
   try {
     console.log('🔄 Processing discount update webhook');
     
     const discountId = discountData.admin_graphql_api_id || `gid://shopify/DiscountCodeNode/${discountData.id}`;
     let couponCode = discountData.code;
-    const shopifyStatus = discountData.status; // 'ACTIVE', 'EXPIRED', etc.
     
     // If no direct code, try to extract from title
     if (!couponCode && discountData.title) {
       couponCode = extractCouponCodeFromTitle(discountData.title);
       console.log(`📝 Extracted code from title: ${couponCode}`);
-    }
-    
-    // If still no code, fetch from Shopify API
-    if (!couponCode) {
-      couponCode = await getCouponCodeFromShopify(discountId);
     }
     
     // Try to find local coupon by Shopify ID first
@@ -207,30 +314,31 @@ async function handleDiscountUpdate(discountData) {
     }
     
     if (!couponCode) {
-      console.warn('⚠️ No coupon code found in webhook data, title, or Shopify API');
+      console.warn('⚠️ No coupon code found for update webhook');
       return NextResponse.json({
         success: true,
         message: 'Webhook processed but no coupon code found'
       });
     }
     
-    console.log(`📝 Updated discount: ${couponCode} (${discountId}) - New Status: ${shopifyStatus}`);
+    console.log(`📝 Updated discount: ${couponCode} (${discountId})`);
     
-    // Find local coupon if we haven't already
+    // If we didn't find by Shopify ID, try by code
     if (!localCoupon) {
       localCoupon = await getCouponByCode(couponCode);
     }
     
     if (!localCoupon) {
-      console.warn(`⚠️ Local coupon not found for ${couponCode} (${discountId})`);
+      console.log(`ℹ️ Discount ${couponCode} updated in Shopify but not found locally`);
       return NextResponse.json({
         success: true,
-        message: `Webhook received but coupon not found locally: ${couponCode}`
+        message: `Discount ${couponCode} noted but not managed locally`
       });
     }
     
-    // Map Shopify status to local status
-    const newLocalStatus = shopifyStatus === 'ACTIVE' ? 'active' : 'disabled';
+    // Determine Shopify status from webhook data
+    const newLocalStatus = (discountData.status === 'ACTIVE' && !discountData.ends_at) ? 
+        'active' : 'disabled';
     
     // Update local status if different
     if (localCoupon.shopify_status !== newLocalStatus) {
@@ -308,28 +416,25 @@ async function handleDiscountDelete(discountData) {
     }
     
     if (localCoupon) {
-      // Update local status to reflect Shopify deletion
-      await updateShopifyStatus(couponCode, 'deleted');
+      // Clear the Shopify reference and update status
+      console.log(`🔗 Unlinking local coupon ${couponCode} from deleted Shopify discount`);
       
-      // Deactivate locally if still active
-      if (localCoupon.status === 'active') {
-        await deactivateLocalCoupon(couponCode, 'Webhook: Deleted from Shopify');
-        
-        return NextResponse.json({
-          success: true,
-          message: `Coupon ${couponCode} deactivated locally due to Shopify deletion`,
-          action: 'deactivated_locally'
-        });
-      }
+      await updateShopifyStatus(couponCode, 'not_synced', null);
+      
+      return NextResponse.json({
+        success: true,
+        message: `Unlinked local coupon ${couponCode} from deleted Shopify discount`,
+        action: 'unlinked'
+      });
     } else {
-      console.warn(`⚠️ Local coupon not found for deletion: ${couponCode}`);
+      console.log(`ℹ️ Discount ${couponCode} deleted in Shopify but not found locally`);
+      
+      return NextResponse.json({
+        success: true,
+        message: `Discount ${couponCode} deletion noted`,
+        action: 'noted'
+      });
     }
-    
-    return NextResponse.json({
-      success: true,
-      message: `Processed deletion of ${couponCode}`,
-      action: 'deletion_processed'
-    });
     
   } catch (error) {
     console.error('❌ Error handling discount deletion:', error);
@@ -337,11 +442,26 @@ async function handleDiscountDelete(discountData) {
   }
 }
 
+// Extract coupon code from discount title (fallback method)
+function extractCouponCodeFromTitle(title) {
+  // Pattern: "Coupon Discount ABC123" -> extract "ABC123"
+  const match = title?.match(/Coupon Discount ([A-Z]{3}\d{3})/);
+  return match ? match[1] : null;
+}
+
 // Handle GET requests for testing
 export async function GET() {
   return NextResponse.json({
     success: true,
     message: 'Shopify webhook endpoint is active',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    supportedTopics: [
+      'discount_codes/create',
+      'discount_codes/update', 
+      'discount_codes/delete',
+      'orders/create',
+      'orders/paid',
+      'orders/updated'
+    ]
   });
 }
