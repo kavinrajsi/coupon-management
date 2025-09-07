@@ -460,8 +460,8 @@ export default function AdminPanel() {
                         <div>
                           <p className="font-medium text-blue-800">Shopify Integration</p>
                           <p className="text-sm text-blue-600 mt-1">
-                            Use &quot;Create Discounts&quot; to add new coupons to Shopify.<br/>
-                            Use &quot;Sync Status&quot; to check for changes made in Shopify admin.
+                            Use "Create Discounts" to add new coupons to Shopify.<br/>
+                            Use "Sync Status" to check for changes made in Shopify admin.
                           </p>
                         </div>
                       </div>
@@ -534,6 +534,9 @@ export default function AdminPanel() {
                                 </span>
                               </div>
                             </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              🛍️ Shopify Status
+                            </th>
                             <th 
                               onClick={() => handleSort('created_date')}
                               className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors select-none"
@@ -599,9 +602,6 @@ export default function AdminPanel() {
                                 </span>
                               </div>
                             </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              🛍️ Shopify Status
-                            </th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -619,6 +619,22 @@ export default function AdminPanel() {
                                     : 'bg-red-100 text-red-800'
                                 }`}>
                                   {coupon.status === 'active' ? '✅' : '🔴'} {coupon.status?.toUpperCase()}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  !coupon.shopify_discount_id 
+                                    ? 'bg-gray-100 text-gray-800'
+                                    : coupon.shopify_status === 'active'
+                                    ? 'bg-green-100 text-green-800'
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {!coupon.shopify_discount_id 
+                                    ? '⭕ Not Synced' 
+                                    : coupon.shopify_status === 'active'
+                                    ? '🟢 Active'
+                                    : '🔴 Disabled'
+                                  }
                                 </span>
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
