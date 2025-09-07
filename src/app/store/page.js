@@ -27,6 +27,7 @@ export default function StorePanel() {
     "Thiruvallur",
     "Washermenpet",
     "Adyar",
+    "Online Shopify"
   ];
 
   const handleInputChange = (field, value) => {

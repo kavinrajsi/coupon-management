@@ -17,7 +17,8 @@ const VALID_STORE_LOCATIONS = [
   'Saligramam',
   'Thiruvallur',
   'Washermenpet',
-  'Adyar'
+  'Adyar',
+  'Online Shopify'
 ];
 
 export async function POST(request) {
