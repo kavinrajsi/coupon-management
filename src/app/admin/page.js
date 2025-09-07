@@ -17,7 +17,7 @@ export default function AdminPanel() {
   const [isSyncingStatus, setIsSyncingStatus] = useState(false);
   const [syncStatusMessage, setSyncStatusMessage] = useState('');
 
-  const itemsPerPage = 1000;
+  const itemsPerPage = 20;
 
   useEffect(() => {
     fetchCoupons();
@@ -166,8 +166,9 @@ export default function AdminPanel() {
         aValue = new Date(aValue || 0);
         bValue = new Date(bValue || 0);
       } else if (sortBy === 'store_location') {
-        aValue = parseInt(aValue || 0);
-        bValue = parseInt(bValue || 0);
+        // Store location is now a string, so compare as strings
+        aValue = (aValue || '').toLowerCase();
+        bValue = (bValue || '').toLowerCase();
       } else if (sortBy === 'is_scratched') {
         aValue = aValue ? 1 : 0;
         bValue = bValue ? 1 : 0;
@@ -330,7 +331,7 @@ export default function AdminPanel() {
                         type="number"
                         value={count}
                         onChange={(e) => setCount(Number(e.target.value))}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50 text-gray-800"
                         min="1"
                         max="10000"
                         placeholder="10000"
@@ -459,8 +460,8 @@ export default function AdminPanel() {
                         <div>
                           <p className="font-medium text-blue-800">Shopify Integration</p>
                           <p className="text-sm text-blue-600 mt-1">
-                            Use &quot;Create Discounts&quot; to add new coupons to Shopify.<br/>
-                            Use &quot;Sync Status&quot; to check for changes made in Shopify admin.
+                            Use "Create Discounts" to add new coupons to Shopify.<br/>
+                            Use "Sync Status" to check for changes made in Shopify admin.
                           </p>
                         </div>
                       </div>
@@ -489,6 +490,11 @@ export default function AdminPanel() {
               </div>
 
               {/* Simple instruction instead of filters */}
+              <div className="border-b border-gray-200 p-6">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600">Click any column header to sort the data</p>
+                </div>
+              </div>
 
               <div className="p-6">
                 {loading ? (
@@ -527,9 +533,6 @@ export default function AdminPanel() {
                                   ) : '↕️'}
                                 </span>
                               </div>
-                            </th>
-                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              🛍️ Shopify Status
                             </th>
                             <th 
                               onClick={() => handleSort('created_date')}
@@ -596,6 +599,9 @@ export default function AdminPanel() {
                                 </span>
                               </div>
                             </th>
+                            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              🛍️ Shopify Status
+                            </th>
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
@@ -616,6 +622,27 @@ export default function AdminPanel() {
                                 </span>
                               </td>
                               <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {coupon.created_date ? new Date(coupon.created_date).toLocaleDateString() : '-'}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {coupon.used_date ? new Date(coupon.used_date).toLocaleDateString() : '-'}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {coupon.store_location || '-'}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                                {coupon.employee_code || '-'}
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                  coupon.is_scratched 
+                                    ? 'bg-purple-100 text-purple-800'
+                                    : 'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {coupon.is_scratched ? '🎯 Yes' : '⭕ No'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
                                 <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                                   !coupon.shopify_discount_id 
                                     ? 'bg-gray-100 text-gray-800'
@@ -629,27 +656,6 @@ export default function AdminPanel() {
                                     ? '🟢 Active'
                                     : '🔴 Disabled'
                                   }
-                                </span>
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {coupon.created_date ? new Date(coupon.created_date).toLocaleDateString() : '-'}
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {coupon.used_date ? new Date(coupon.used_date).toLocaleDateString() : '-'}
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {coupon.store_location ? `Store ${coupon.store_location}` : '-'}
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                                {coupon.employee_code || '-'}
-                              </td>
-                              <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                  coupon.is_scratched 
-                                    ? 'bg-purple-100 text-purple-800'
-                                    : 'bg-gray-100 text-gray-800'
-                                }`}>
-                                  {coupon.is_scratched ? '🎯 Yes' : '⭕ No'}
                                 </span>
                               </td>
                             </tr>

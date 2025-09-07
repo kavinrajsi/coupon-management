@@ -5,12 +5,29 @@ export default function StorePanel() {
   const [formData, setFormData] = useState({
     couponCode: "",
     employeeCode: "",
-    storeLocation: "1",
+    storeLocation: "Aminjikarai",
   });
   const [message, setMessage] = useState("");
   const [isValidating, setIsValidating] = useState(false);
   const [couponDetails, setCouponDetails] = useState(null);
-  const [validationHistory, setValidationHistory] = useState([]);
+
+  // Chennai store locations
+  const storeLocations = [
+    "Aminjikarai",
+    "Anna Nagar East",
+    "Arumbakkam",
+    "Kanchipuram",
+    "Kilpauk",
+    "Mogappair",
+    "Mylapore",
+    "Nerkundram",
+    "Nungambakkam",
+    "Perambur",
+    "Saligramam",
+    "Thiruvallur",
+    "Washermenpet",
+    "Adyar",
+  ];
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({
@@ -40,7 +57,7 @@ export default function StorePanel() {
       const requestBody = {
         code: formData.couponCode.trim().toUpperCase(),
         employeeCode: formData.employeeCode.trim(),
-        storeLocation: parseInt(formData.storeLocation),
+        storeLocation: formData.storeLocation, // Send as string instead of integer
       };
 
       console.log("Validating coupon:", requestBody);
@@ -67,7 +84,7 @@ export default function StorePanel() {
         setFormData({
           couponCode: "",
           employeeCode: "",
-          storeLocation: "1",
+          storeLocation: "Aminjikarai",
         });
       }
     } catch (error) {
@@ -154,9 +171,7 @@ export default function StorePanel() {
                 <div>
                   <span className="text-blue-600 font-medium">Store:</span>
                   <p className="font-semibold text-gray-800">
-                    {couponDetails.store_location
-                      ? `Store ${couponDetails.store_location}`
-                      : "N/A"}
+                    {couponDetails.store_location || "N/A"}
                   </p>
                 </div>
                 <div className="col-span-2">
@@ -210,7 +225,7 @@ export default function StorePanel() {
                           handleInputChange("couponCode", e.target.value)
                         }
                         onKeyPress={handleKeyPress}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl font-mono text-lg uppercase tracking-wider focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl font-mono text-lg uppercase tracking-wider focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 text-gray-800"
                         placeholder="ABC123"
                         maxLength="6"
                         minLength="6"
@@ -238,7 +253,7 @@ export default function StorePanel() {
                         handleInputChange("employeeCode", e.target.value)
                       }
                       onKeyPress={handleKeyPress}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 text-gray-800"
                       placeholder="EMP001"
                     />
                   </div>
@@ -256,18 +271,11 @@ export default function StorePanel() {
                       onChange={(e) =>
                         handleInputChange("storeLocation", e.target.value)
                       }
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 text-gray-800"
                     >
-                      {Array.from({ length: 18 }, (_, i) => (
-                        <option key={i + 1} value={String(i + 1)}>
-                          Store {i + 1}{" "}
-                          {i + 1 === 1
-                            ? "(Main Branch)"
-                            : i + 1 === 5
-                            ? "(Downtown)"
-                            : i + 1 === 10
-                            ? "(Mall)"
-                            : ""}
+                      {storeLocations.map((location) => (
+                        <option key={location} value={location}>
+                          {location}
                         </option>
                       ))}
                     </select>

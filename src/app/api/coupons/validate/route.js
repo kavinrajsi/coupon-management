@@ -1,6 +1,24 @@
 import { NextResponse } from 'next/server';
-import { validateCoupon, getCouponByCode, initDatabase } from '@/lib/supabase';
+import { validateCoupon, getCouponByCode, initDatabase, updateShopifyStatus } from '@/lib/supabase';
 import { disableShopifyDiscount } from '@/lib/shopify';
+
+// Valid Chennai store locations
+const VALID_STORE_LOCATIONS = [
+  'Aminjikarai',
+  'Anna Nagar East',
+  'Arumbakkam',
+  'Kanchipuram',
+  'Kilpauk',
+  'Mogappair',
+  'Mylapore',
+  'Nerkundram',
+  'Nungambakkam',
+  'Perambur',
+  'Saligramam',
+  'Thiruvallur',
+  'Washermenpet',
+  'Adyar'
+];
 
 export async function POST(request) {
   try {
@@ -15,6 +33,14 @@ export async function POST(request) {
       return NextResponse.json({
         success: false,
         message: 'Missing required fields. Please fill in all fields.'
+      }, { status: 400 });
+    }
+
+    // Validate store location
+    if (!VALID_STORE_LOCATIONS.includes(storeLocation)) {
+      return NextResponse.json({
+        success: false,
+        message: `Invalid store location: "${storeLocation}". Please select a valid Chennai store location.`
       }, { status: 400 });
     }
 
@@ -61,7 +87,7 @@ export async function POST(request) {
     if (coupon.used_date) {
       return NextResponse.json({
         success: false,
-        message: `Coupon already used on ${new Date(coupon.used_date).toLocaleString()} by employee ${coupon.employee_code} at Store ${coupon.store_location}.`,
+        message: `Coupon already used on ${new Date(coupon.used_date).toLocaleString()} by employee ${coupon.employee_code} at ${coupon.store_location}.`,
         couponDetails: coupon
       });
     }
@@ -78,7 +104,7 @@ export async function POST(request) {
       }
     }
 
-    // Proceed with validation
+    // Proceed with validation - now passing string store location
     const result = await validateCoupon(code, employeeCode, storeLocation);
     console.log('Validation result:', result);
     
@@ -93,7 +119,6 @@ export async function POST(request) {
           if (shopifyResult.success) {
             console.log('✅ Successfully disabled coupon in Shopify');
             // Update database to reflect Shopify status
-            const { updateShopifyStatus } = await import('@/lib/supabase');
             await updateShopifyStatus(code, 'disabled');
             
             result.shopifyDisabled = true;
