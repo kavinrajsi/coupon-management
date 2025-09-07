@@ -115,36 +115,6 @@ export default function AdminPanel() {
     }
   };
 
-  // Sync status from Shopify (webhooks alternative)
-  const syncStatusFromShopify = async () => {
-    setIsSyncingStatus(true);
-    setSyncStatusMessage('');
-    
-    try {
-      const response = await fetch('/api/shopify/sync-status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'sync-all' }),
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setSyncStatusMessage(`✅ ${data.message}`);
-        await fetchCoupons(); // Refresh the list
-      } else {
-        setSyncStatusMessage(`❌ ${data.message}`);
-      }
-    } catch (error) {
-      setSyncStatusMessage(`❌ Error: ${error.message}`);
-      console.error('Status sync error:', error);
-    } finally {
-      setIsSyncingStatus(false);
-    }
-  };
-
   // Handle column sorting
   const handleSort = (column) => {
     if (sortBy === column) {
@@ -421,35 +391,6 @@ export default function AdminPanel() {
                     {syncMessage && (
                       <div className="p-3 rounded-lg bg-gray-50 text-sm">
                         {syncMessage}
-                      </div>
-                    )}
-
-                    {/* Sync Status from Shopify Button */}
-                    <button
-                      onClick={syncStatusFromShopify}
-                      disabled={isSyncingStatus}
-                      className={`w-full py-3 px-4 rounded-xl text-white font-medium transition-all duration-200 ${
-                        isSyncingStatus 
-                          ? 'bg-gray-400 cursor-not-allowed' 
-                          : 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 shadow-lg hover:shadow-xl'
-                      }`}
-                    >
-                      {isSyncingStatus ? (
-                        <span className="flex items-center justify-center space-x-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                          <span>Syncing Status...</span>
-                        </span>
-                      ) : (
-                        <span className="flex items-center justify-center space-x-2">
-                          <span>🔄</span>
-                          <span>Sync Status from Shopify</span>
-                        </span>
-                      )}
-                    </button>
-
-                    {syncStatusMessage && (
-                      <div className="p-3 rounded-lg bg-gray-50 text-sm">
-                        {syncStatusMessage}
                       </div>
                     )}
 
