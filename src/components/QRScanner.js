@@ -36,17 +36,7 @@ export default function QRScanner({ onScan, onError, isActive = false }) {
     checkCameraPermissions();
   }, []);
 
-  useEffect(() => {
-    if (isActive && permissionState === 'granted') {
-      initializeCamera();
-    } else {
-      stopScanning();
-    }
 
-    return () => {
-      stopScanning();
-    };
-  }, [isActive, selectedDevice, permissionState]);
 
   const checkCameraPermissions = async () => {
     try {
@@ -327,9 +317,9 @@ export default function QRScanner({ onScan, onError, isActive = false }) {
           <div className="mt-4 text-sm text-red-600 bg-red-100 rounded p-3">
             <p className="font-medium mb-2">📋 Troubleshooting Steps:</p>
             <ul className="text-left space-y-1">
-              <li>1. Click "Allow Camera Access" above</li>
+              <li>1. Click &quot;Allow Camera Access&quot; above</li>
               <li>2. Look for camera permission popup in browser</li>
-              <li>3. Select "Allow" when prompted</li>
+              <li>3. Select &quot;Allow&quot; when prompted</li>
               <li>4. Check browser address bar for camera icon 🎥</li>
               <li>5. Refresh page if needed</li>
             </ul>
