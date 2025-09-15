@@ -170,34 +170,6 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
-      {/* Header */}
-      <div className="bg-white shadow-lg border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-4">
-              <div className="flex-shrink-0">
-                <div className="h-12 w-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-xl">👑</span>
-                </div>
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
-                <p className="text-sm text-gray-500">Manage and monitor coupon system</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right text-sm text-gray-600">
-                <p className="font-medium">Administrator Panel</p>
-                <p>{new Date().toLocaleDateString()}</p>
-              </div>
-              <div className="h-10 w-10 bg-gradient-to-r from-green-400 to-green-500 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold">A</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">

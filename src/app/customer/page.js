@@ -108,32 +108,6 @@ export default function CustomerPanel() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
       {/* Header */}
-      <div className="bg-white shadow-lg border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-4">
-              <div className="flex-shrink-0">
-                <div className="h-12 w-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-xl">🎁</span>
-                </div>
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Customer Portal</h1>
-                <p className="text-sm text-gray-500">Discover and share your coupon codes</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right text-sm text-gray-600">
-                <p className="font-medium">Welcome Customer</p>
-                <p>{new Date().toLocaleDateString()}</p>
-              </div>
-              <div className="h-10 w-10 bg-gradient-to-r from-purple-400 to-pink-500 rounded-full flex items-center justify-center">
-                <span className="text-white font-bold">C</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
