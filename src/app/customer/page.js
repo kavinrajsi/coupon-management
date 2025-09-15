@@ -249,9 +249,6 @@ export default function CustomerPanel() {
                           </div>
                         </th>
                         <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          🔗 Share Link
-                        </th>
-                        <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           ⚡ Actions
                         </th>
                       </tr>
@@ -265,11 +262,6 @@ export default function CustomerPanel() {
                               <div className="flex items-center space-x-3">
                                 <div className="h-10 w-10 bg-gradient-to-r from-purple-400 to-pink-500 rounded-lg flex items-center justify-center">
                                   <span className="text-white font-bold text-sm">{coupon.code.slice(0, 2)}</span>
-                                </div>
-                                <div>
-                                  <span className="font-mono text-lg font-bold text-gray-900 bg-gray-100 px-3 py-1 rounded-lg">
-                                    {coupon.code}
-                                  </span>
                                 </div>
                               </div>
                             </td>
@@ -289,21 +281,9 @@ export default function CustomerPanel() {
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <a 
-                                href={viewUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center space-x-2 text-purple-600 hover:text-purple-800 font-medium transition-colors"
-                              >
-                                <span>🔗</span>
-                                <span>View Scratch Card</span>
-                                <span className="text-xs">↗</span>
-                              </a>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
                               <button
                                 onClick={() => copyToClipboard(coupon.code)}
-                                className={`inline-flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
+                                className={`inline-flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 cursor-pointer ${
                                   copiedCode === coupon.code
                                     ? 'bg-green-500 text-white transform scale-105'
                                     : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 hover:scale-105 shadow-lg'
