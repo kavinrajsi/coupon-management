@@ -1,16 +1,104 @@
+// @/lib/shopify.js
 import { createAdminApiClient } from '@shopify/admin-api-client';
 
-// Add debugging
+// ---- Debugging (keep) ----
 console.log('Shopify Config Check:');
 console.log('Store URL:', process.env.SHOPIFY_STORE_URL);
 console.log('Access Token exists:', !!process.env.SHOPIFY_ACCESS_TOKEN);
 console.log('API Version:', process.env.SHOPIFY_API_VERSION);
 
+// ---- GraphQL client (keep) ----
 const client = createAdminApiClient({
   storeDomain: process.env.SHOPIFY_STORE_URL,
   apiVersion: process.env.SHOPIFY_API_VERSION || '2023-10',
   accessToken: process.env.SHOPIFY_ACCESS_TOKEN,
 });
+
+// ---- Small REST helper for order note ops ----
+const API_VERSION = process.env.SHOPIFY_API_VERSION || '2023-10';
+async function shopifyRest(path, init = {}) {
+  const url = `https://${process.env.SHOPIFY_STORE_URL}/admin/api/${API_VERSION}${path}`;
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
+      'Content-Type': 'application/json',
+      ...(init.headers || {})
+    }
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Shopify REST ${res.status} ${path}: ${text}`);
+  }
+  return res.json();
+}
+
+/**
+ * Append a line to an order's internal note (shows in Admin > Order).
+ * No-ops if orderId is not a numeric Shopify order ID.
+ */
+export async function appendOrderNote(orderId, line) {
+  try {
+    if (!orderId || isNaN(Number(orderId))) {
+      return { success: false, skipped: true, message: 'Invalid/non-numeric orderId' };
+    }
+
+    // 1) Fetch current note
+    const { order } = await shopifyRest(`/orders/${orderId}.json`, { method: 'GET' });
+    const prefix = order.note ? `${order.note}\n` : '';
+    const newNote = `${prefix}${line}`;
+
+    // 2) Update note
+    await shopifyRest(`/orders/${orderId}.json`, {
+      method: 'PUT',
+      body: JSON.stringify({ order: { id: orderId, note: newNote } })
+    });
+
+    return { success: true, message: 'Order note updated' };
+  } catch (error) {
+    console.error('❌ appendOrderNote error:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+/**
+ * Optional: structured, appendable JSON log on the order as a metafield.
+ * You can call this alongside appendOrderNote to keep a machine-friendly history.
+ */
+export async function addOrderCouponLogMetafield(orderId, entry) {
+  try {
+    if (!orderId || isNaN(Number(orderId))) {
+      return { success: false, skipped: true, message: 'Invalid/non-numeric orderId' };
+    }
+    const ownerId = `gid://shopify/Order/${orderId}`;
+    const mutation = `
+      mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
+        metafieldsSet(metafields: $metafields) {
+          userErrors { field message }
+        }
+      }
+    `;
+    const res = await client.request(mutation, {
+      variables: {
+        metafields: [{
+          ownerId,
+          namespace: "coupon",
+          key: "validation_log",
+          type: "json",
+          value: JSON.stringify(entry)
+        }]
+      }
+    });
+    const errs = res.data?.metafieldsSet?.userErrors || [];
+    if (errs.length) throw new Error(errs.map(e => e.message).join(', '));
+    return { success: true, message: 'Metafield log updated' };
+  } catch (error) {
+    console.error('❌ addOrderCouponLogMetafield error:', error);
+    return { success: false, message: error.message };
+  }
+}
+
+// ---- Your existing functions (kept intact) ----
 
 export async function createShopifyDiscount(couponCode) {
   try {
@@ -138,21 +226,18 @@ export async function createShopifyDiscount(couponCode) {
   } catch (error) {
     console.error('❌ Shopify discount creation error:', error);
     
-    // More specific error messages
     if (error.message.includes('Unauthorized')) {
       return {
         success: false,
         message: 'Invalid Shopify access token. Please check your credentials.'
       };
     }
-    
     if (error.message.includes('not found')) {
       return {
         success: false,
         message: 'Shopify store not found. Please check SHOPIFY_STORE_URL.'
       };
     }
-    
     if (error.message.includes('rate limit')) {
       return {
         success: false,
@@ -230,14 +315,12 @@ export async function disableShopifyDiscount(shopifyDiscountId) {
   } catch (error) {
     console.error('❌ Shopify discount deactivation error:', error);
     
-    // Handle specific errors
     if (error.message.includes('not found')) {
       return {
         success: false,
         message: 'Discount not found in Shopify (may already be deleted)'
       };
     }
-    
     if (error.message.includes('Unauthorized')) {
       return {
         success: false,
@@ -430,7 +513,7 @@ export async function syncShopifyStatusToLocal() {
     for (const discountNode of shopifyDiscounts.discounts) {
       const discount = discountNode.codeDiscount;
       const couponCode = discount.codes?.nodes?.[0]?.code;
-      const shopifyStatus = discount.status; // 'ACTIVE' or 'EXPIRED' or other statuses
+      const shopifyStatus = discount.status; // 'ACTIVE', 'EXPIRED', etc.
       
       if (!couponCode) {
         console.warn('⚠️ Discount without code found, skipping:', discountNode.id);
@@ -439,7 +522,6 @@ export async function syncShopifyStatusToLocal() {
 
       // Map Shopify status to local status
       let localShopifyStatus;
-      
       switch (shopifyStatus) {
         case 'ACTIVE':
           localShopifyStatus = 'active';
@@ -480,33 +562,21 @@ export async function checkAndSyncSpecificCoupon(couponCode) {
   try {
     console.log(`🔍 Checking Shopify status for coupon: ${couponCode}`);
     
-    // Import database functions from supabase
     const { getCouponByCode, updateShopifyStatus } = await import('./supabase.js');
     
-    // Get local coupon
     const localCoupon = await getCouponByCode(couponCode);
-    
     if (!localCoupon || !localCoupon.shopify_discount_id) {
-      return {
-        success: false,
-        message: 'Coupon not found or not synced to Shopify'
-      };
+      return { success: false, message: 'Coupon not found or not synced to Shopify' };
     }
 
-    // Get Shopify status
     const shopifyStatus = await getShopifyDiscountStatus(localCoupon.shopify_discount_id);
-    
     if (!shopifyStatus.success) {
-      return {
-        success: false,
-        message: `Failed to get Shopify status: ${shopifyStatus.message}`
-      };
+      return { success: false, message: `Failed to get Shopify status: ${shopifyStatus.message}` };
     }
 
     const discount = shopifyStatus.discount;
     const shopifyDiscountStatus = discount?.status;
     
-    // Map Shopify status to local status
     let newLocalStatus;
     switch (shopifyDiscountStatus) {
       case 'ACTIVE':
@@ -518,13 +588,10 @@ export async function checkAndSyncSpecificCoupon(couponCode) {
         newLocalStatus = 'disabled';
     }
 
-    // Update local status if different
     if (localCoupon.shopify_status !== newLocalStatus) {
       console.log(`🔄 Updating local status for ${couponCode}: ${localCoupon.shopify_status} → ${newLocalStatus}`);
-      
       await updateShopifyStatus(couponCode, newLocalStatus);
       
-      // If Shopify is disabled and local coupon is still active, deactivate locally too
       if (newLocalStatus === 'disabled' && localCoupon.status === 'active') {
         const { deactivateLocalCoupon } = await import('./supabase.js');
         await deactivateLocalCoupon(couponCode, 'Deactivated due to Shopify sync');
@@ -539,18 +606,11 @@ export async function checkAndSyncSpecificCoupon(couponCode) {
       };
     }
 
-    return {
-      success: true,
-      message: 'Status already in sync',
-      updated: false
-    };
+    return { success: true, message: 'Status already in sync', updated: false };
 
   } catch (error) {
     console.error('❌ Error checking specific coupon:', error);
-    return {
-      success: false,
-      message: error.message
-    };
+    return { success: false, message: error.message };
   }
 }
 
@@ -593,5 +653,5 @@ export async function testShopifyConnection() {
   }
 }
 
-// Export the client as default
+// ---- default export (keep) ----
 export default client;
