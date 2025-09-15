@@ -28,12 +28,12 @@ export async function POST(request) {
     const body = await request.json();
     console.log('Received request body:', body);
     
-    const { code, employeeCode, storeLocation } = body;
+    const { code, employeeCode, storeLocation, orderId } = body; // ✅ orderId added
     
-    if (!code || !employeeCode || !storeLocation) {
+    if (!code || !employeeCode || !storeLocation || !orderId) {
       return NextResponse.json({
         success: false,
-        message: 'Missing required fields. Please fill in all fields.'
+        message: 'Missing required fields. Please fill in all fields (coupon, employee, store, orderId).'
       }, { status: 400 });
     }
 
@@ -45,7 +45,7 @@ export async function POST(request) {
       }, { status: 400 });
     }
 
-    // First, get the coupon details for debugging
+    // First, get the coupon details
     let coupon = await getCouponByCode(code);
     console.log('Coupon found:', coupon);
 
@@ -57,7 +57,6 @@ export async function POST(request) {
       });
     }
 
-    // Check if status is null/undefined and provide better error message
     if (!coupon.status) {
       console.warn(`⚠️ Coupon ${code} has null/undefined status, treating as inactive`);
       return NextResponse.json({
@@ -70,7 +69,6 @@ export async function POST(request) {
       });
     }
 
-    // Return detailed information about why validation failed
     if (coupon.status !== 'active') {
       const statusMessage = coupon.status === 'used' 
         ? 'This coupon has already been used.' 
@@ -93,24 +91,22 @@ export async function POST(request) {
       });
     }
     
-    // Check Shopify status first
+    // Sync with Shopify if needed
     if (coupon.shopify_discount_id) {
       const { checkAndSyncSpecificCoupon } = await import('@/lib/shopify');
       const statusCheck = await checkAndSyncSpecificCoupon(code);
       
       if (statusCheck.success && statusCheck.updated) {
         console.log(`📋 Updated coupon status from Shopify: ${statusCheck.message}`);
-        // Refresh coupon data
         coupon = await getCouponByCode(code);
       }
     }
 
-    // Proceed with validation - now passing string store location
-    const result = await validateCoupon(code, employeeCode, storeLocation);
+    // ✅ Pass orderId to validation
+    const result = await validateCoupon(code, employeeCode, storeLocation, orderId);
     console.log('Validation result:', result);
     
     if (result.success) {
-      // If coupon was validated successfully and has Shopify ID, disable it in Shopify
       if (result.shouldDisableShopify && result.coupon.shopify_discount_id) {
         console.log(`🔒 Auto-disabling Shopify discount for used coupon: ${code}`);
         
@@ -119,7 +115,6 @@ export async function POST(request) {
           
           if (shopifyResult.success) {
             console.log('✅ Successfully disabled coupon in Shopify');
-            // Update database to reflect Shopify status
             await updateShopifyStatus(code, 'disabled');
             
             result.shopifyDisabled = true;
@@ -136,11 +131,11 @@ export async function POST(request) {
         }
       }
       
-      // Get updated coupon details
       const updatedCoupon = await getCouponByCode(code);
+      const normalized = { ...updatedCoupon, order_id: updatedCoupon.order_id ?? updatedCoupon.orderId };
       return NextResponse.json({
         ...result,
-        couponDetails: updatedCoupon
+         couponDetails: normalized
       });
     }
     

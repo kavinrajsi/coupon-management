@@ -7,6 +7,7 @@ export default function StorePanel() {
     couponCode: "",
     employeeCode: "",
     storeLocation: "Aminjikarai",
+    orderId: "", // ✅ Added orderId
   });
   const [message, setMessage] = useState("");
   const [isValidating, setIsValidating] = useState(false);
@@ -50,7 +51,8 @@ export default function StorePanel() {
     if (
       !formData.couponCode ||
       !formData.employeeCode ||
-      !formData.storeLocation
+      !formData.storeLocation ||
+      !formData.orderId
     ) {
       setMessage("Error: All fields are required");
       setIsValidating(false);
@@ -62,6 +64,7 @@ export default function StorePanel() {
         code: formData.couponCode.trim().toUpperCase(),
         employeeCode: formData.employeeCode.trim(),
         storeLocation: formData.storeLocation,
+        orderId: formData.orderId.trim(), // ✅ Added orderId
       };
 
       console.log("Validating coupon:", requestBody);
@@ -89,6 +92,7 @@ export default function StorePanel() {
           couponCode: "",
           employeeCode: "",
           storeLocation: "Aminjikarai",
+          orderId: "", // ✅ reset
         });
       }
     } catch (error) {
@@ -124,7 +128,6 @@ export default function StorePanel() {
 
     // Auto-focus on employee code field if it's empty
     if (!formData.employeeCode) {
-      // Find and focus the employee code input
       const employeeInput = document.querySelector('input[placeholder="EMP001"]');
       if (employeeInput) {
         employeeInput.focus();
@@ -147,42 +150,77 @@ export default function StorePanel() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-      {/* Header Section */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-4">
-              <div className="flex-shrink-0">
-                <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-lg">🏪</span>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+        {/* Coupon Details */}
+        {couponDetails && (
+          <div className="mb-8">
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+              <div className="bg-gradient-to-r from-gray-600 to-gray-700 px-6 py-4">
+                <h3 className="text-xl font-semibold text-white flex items-center space-x-2">
+                  <span>📋</span>
+                  <span>Coupon Details</span>
+                </h3>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div className="bg-blue-50 rounded-lg p-4 text-center">
+                    <p className="text-blue-600 font-medium text-sm">Code</p>
+                    <p className="font-mono text-xl font-bold text-blue-800">
+                      {couponDetails.code || "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-4 text-center">
+                    <p className="text-green-600 font-medium text-sm">Status</p>
+                    <p
+                      className={`font-semibold text-lg ${
+                        couponDetails.status === "used"
+                          ? "text-red-600"
+                          : "text-green-600"
+                      }`}
+                    >
+                      {couponDetails.status
+                        ? couponDetails.status.toUpperCase()
+                        : "UNKNOWN"}
+                    </p>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-4 text-center">
+                    <p className="text-purple-600 font-medium text-sm">Employee</p>
+                    <p className="font-semibold text-lg text-purple-800">
+                      {couponDetails.employee_code || "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-orange-50 rounded-lg p-4 text-center">
+                    <p className="text-orange-600 font-medium text-sm">Store</p>
+                    <p className="font-semibold text-lg text-orange-800">
+                      {couponDetails.store_location || "N/A"}
+                    </p>
+                  </div>
+                  <div className="bg-yellow-50 rounded-lg p-4 text-center">
+                    <p className="text-yellow-600 font-medium text-sm">Order ID</p>
+                    <p className="font-semibold text-lg text-yellow-800">
+                      {couponDetails.order_id ?? couponDetails.orderId ?? "N/A"}
+                    </p>
+                  </div>
                 </div>
+                
+                {couponDetails.used_date && (
+                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                    <p className="text-gray-600 font-medium text-sm">Validated On:</p>
+                    <p className="text-gray-800 font-semibold">
+                      {new Date(couponDetails.used_date).toLocaleString()}
+                    </p>
+                  </div>
+                )}
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Store Panel
-                </h1>
-                <p className="text-sm text-gray-500">
-                  Validate and manage coupon codes
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                🟢 Online
-              </span>
-              <span>{new Date().toLocaleDateString()}</span>
             </div>
           </div>
-        </div>
-      </div>
+        )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
           {/* QR Scanner Section */}
           <div className="order-1 lg:order-1">
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-              {/* Scanner Header */}
               <div className="bg-gradient-to-r from-green-600 to-blue-600 px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
@@ -207,7 +245,6 @@ export default function StorePanel() {
                 </div>
               </div>
 
-              {/* Scanner Content */}
               <div className="p-6">
                 {scannerMessage && (
                   <div className={`mb-4 p-3 rounded-lg ${
@@ -238,7 +275,7 @@ export default function StorePanel() {
                         <li>• Start the scanner above</li>
                         <li>• Point camera at coupon QR code</li>
                         <li>• Code will auto-fill in the form</li>
-                        <li>• Complete employee & store info</li>
+                        <li>• Complete employee, order & store info</li>
                         <li>• Validate the coupon!</li>
                       </ul>
                     </div>
@@ -251,7 +288,6 @@ export default function StorePanel() {
           {/* Manual Validation Form */}
           <div className="order-2 lg:order-2">
             <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-              {/* Form Header */}
               <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
                 <div className="flex items-center space-x-3">
                   <div className="h-8 w-8 bg-white/20 rounded-lg flex items-center justify-center">
@@ -268,9 +304,7 @@ export default function StorePanel() {
                 </div>
               </div>
 
-              {/* Form Content */}
               <div className="p-6">
-                {/* Success/Error Message */}
                 {message && (
                   <div
                     className={`mb-6 p-4 rounded-xl border-l-4 ${
@@ -345,6 +379,26 @@ export default function StorePanel() {
                     />
                   </div>
 
+                  {/* Order ID Input */}
+                  <div className="space-y-2">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      <span className="flex items-center space-x-2">
+                        <span>🧾</span>
+                        <span>Order ID</span>
+                      </span>
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.orderId}
+                      onChange={(e) =>
+                        handleInputChange("orderId", e.target.value)
+                      }
+                      onKeyPress={handleKeyPress}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 text-gray-800"
+                      placeholder="ORD12345"
+                    />
+                  </div>
+
                   {/* Store Location Select */}
                   <div className="space-y-2">
                     <label className="block text-sm font-semibold text-gray-700">
@@ -398,148 +452,6 @@ export default function StorePanel() {
           </div>
         </div>
 
-        {/* Coupon Details */}
-        {couponDetails && (
-          <div className="mt-8">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-              <div className="bg-gradient-to-r from-gray-600 to-gray-700 px-6 py-4">
-                <h3 className="text-xl font-semibold text-white flex items-center space-x-2">
-                  <span>📋</span>
-                  <span>Coupon Details</span>
-                </h3>
-              </div>
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-blue-50 rounded-lg p-4 text-center">
-                    <p className="text-blue-600 font-medium text-sm">Code</p>
-                    <p className="font-mono text-xl font-bold text-blue-800">
-                      {couponDetails.code || "N/A"}
-                    </p>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-4 text-center">
-                    <p className="text-green-600 font-medium text-sm">Status</p>
-                    <p
-                      className={`font-semibold text-lg ${
-                        couponDetails.status === "used"
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      {couponDetails.status
-                        ? couponDetails.status.toUpperCase()
-                        : "UNKNOWN"}
-                    </p>
-                  </div>
-                  <div className="bg-purple-50 rounded-lg p-4 text-center">
-                    <p className="text-purple-600 font-medium text-sm">Employee</p>
-                    <p className="font-semibold text-lg text-purple-800">
-                      {couponDetails.employee_code || "N/A"}
-                    </p>
-                  </div>
-                  <div className="bg-orange-50 rounded-lg p-4 text-center">
-                    <p className="text-orange-600 font-medium text-sm">Store</p>
-                    <p className="font-semibold text-lg text-orange-800">
-                      {couponDetails.store_location || "N/A"}
-                    </p>
-                  </div>
-                </div>
-                
-                {couponDetails.used_date && (
-                  <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                    <p className="text-gray-600 font-medium text-sm">Validated On:</p>
-                    <p className="text-gray-800 font-semibold">
-                      {new Date(couponDetails.used_date).toLocaleString()}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Help & Instructions */}
-        <div className="mt-8 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6 border border-blue-200">
-          <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center space-x-2">
-            <span>💡</span>
-            <span>How to Use the Store Panel</span>
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* QR Scanner Instructions */}
-            <div className="bg-white rounded-lg p-4">
-              <h4 className="font-medium text-gray-800 mb-3 flex items-center space-x-2">
-                <span>📱</span>
-                <span>Using QR Scanner</span>
-              </h4>
-              <ul className="text-sm text-gray-600 space-y-2">
-                <li className="flex items-start space-x-2">
-                  <span className="text-blue-500 font-bold">1.</span>
-                  <span>Click &quot;Start Scanner&quot; to activate camera</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-blue-500 font-bold">2.</span>
-                  <span>Point camera at customer&spaos;s QR code</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-blue-500 font-bold">3.</span>
-                  <span>Code will auto-fill in the form</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-blue-500 font-bold">4.</span>
-                  <span>Complete employee code and validate</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Manual Entry Instructions */}
-            <div className="bg-white rounded-lg p-4">
-              <h4 className="font-medium text-gray-800 mb-3 flex items-center space-x-2">
-                <span>✍️</span>
-                <span>Manual Entry</span>
-              </h4>
-              <ul className="text-sm text-gray-600 space-y-2">
-                <li className="flex items-start space-x-2">
-                  <span className="text-purple-500 font-bold">1.</span>
-                  <span>Ask customer for their 6-character code</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-purple-500 font-bold">2.</span>
-                  <span>Enter code in format: ABC123</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-purple-500 font-bold">3.</span>
-                  <span>Add your employee code</span>
-                </li>
-                <li className="flex items-start space-x-2">
-                  <span className="text-purple-500 font-bold">4.</span>
-                  <span>Select store location and validate</span>
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Quick Tips */}
-          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <h4 className="font-medium text-yellow-800 mb-2 flex items-center space-x-2">
-              <span>⚡</span>
-              <span>Quick Tips</span>
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-yellow-700">
-              <div>
-                <p className="font-medium">🔍 Scanner Issues?</p>
-                <p>Ensure good lighting and steady hands</p>
-              </div>
-              <div>
-                <p className="font-medium">🔒 Already Used?</p>
-                <p>Check coupon details for usage history</p>
-              </div>
-              <div>
-                <p className="font-medium">❌ Invalid Code?</p>
-                <p>Double-check spelling and format</p>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

@@ -256,9 +256,9 @@ export async function getCouponsNeedingSync() {
 }
 
 // Validate and use coupon
-export async function validateCoupon(code, employeeCode, storeLocation) {
+export async function validateCoupon(code, employeeCode, storeLocation, orderId) {
   try {
-    console.log('validateCoupon called with:', { code, employeeCode, storeLocation });
+    console.log('validateCoupon called with:', { code, employeeCode, storeLocation, orderId});
     
     const coupon = await getCouponByCode(code);
     
@@ -284,7 +284,8 @@ export async function validateCoupon(code, employeeCode, storeLocation) {
         used_date: new Date().toISOString(),
         employee_code: employeeCode,
         store_location: storeLocation,
-        status: 'used'
+        status: 'used',
+        order_id: orderId,
       })
       .eq('code', code)
       .select();
