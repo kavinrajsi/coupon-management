@@ -1,8 +1,9 @@
-// src/app/view/[code]/page.js
+// src/app/view/[code]/page.js - Updated with QR Code
 "use client";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import ScratchCard from "@/components/ScratchCard";
+import QRCode from "@/components/QRCode";
 
 export default function ViewCoupon() {
   const params = useParams();
@@ -10,6 +11,7 @@ export default function ViewCoupon() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [hasScratched, setHasScratched] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
 
   useEffect(() => {
     if (params.code) {
@@ -66,15 +68,30 @@ export default function ViewCoupon() {
           is_scratched: true,
           scratched_date: new Date().toISOString(),
         }));
-        // const errorMessage = data?.message || 'Failed to scratch coupon';
-        // console.error('Scratch error:', errorMessage);
-        // // Optionally show error to user
-        // setError(errorMessage);
       }
     } catch (error) {
       console.error("Error scratching coupon:", error);
-      // Optionally show error to user
-      // setError('Network error occurred while scratching coupon');
+    }
+  };
+
+  const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(currentUrl);
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2000);
+    } catch (error) {
+      console.error("Failed to copy URL:", error);
+      // Fallback for older browsers
+      const textArea = document.createElement("textarea");
+      textArea.value = currentUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2000);
     }
   };
 
@@ -106,33 +123,41 @@ export default function ViewCoupon() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-green-50 flex items-center justify-center p-4">
-      <div className="flex justify-center">
-        {hasScratched ? (
-          <div className="relative w-[400px] h-[250px]">
-            <div className="bg-red-500 rounded-lg shadow-lg border-4 border-red-500 rounded-lg shadow-lg p-8 text-center max-w-md w-full">
-              <div className="text-6xl mb-4">🎉</div>
-              <h2 className="text-3xl font-bold text-white-800 mb-2">
-                {coupon.code}
-              </h2>
-              <p className="text-lg text-white-700 font-semibold">
-                Congratulations!
-              </p>
-              <p className="text-lg text-white-700 font-semibold">
-                You&apos;ve won a prize!
-              </p>
-              <div className="text-sm text-white-600 mt-2">
-                <p>
-                  Scratched on:{" "}
-                  {new Date(coupon.scratched_date).toLocaleDateString()}
+      <div className="flex flex-col lg:flex-row items-center justify-center gap-8 max-w-6xl mx-auto">
+        {/* Scratch Card */}
+        <div className="flex-shrink-0">
+          {hasScratched ? (
+            <div className="relative w-[400px] h-[250px]">
+              <div className="bg-red-500 rounded-lg shadow-lg border-4 border-red-500 p-8 text-center">
+                <div className="text-6xl mb-4">🎉</div>
+                <h2 className="text-3xl font-bold text-white mb-2">
+                  {coupon.code}
+                </h2>
+                <p className="text-lg text-white font-semibold pb-2">
+                  Congratulations! Coupon code
                 </p>
-                <p>at {new Date(coupon.scratched_date).toLocaleTimeString()}</p>
+                <div className="flex justify-center mb-4">
+                  <QRCode
+                    text={currentUrl}
+                    size={200}
+                    className="border-2 border-gray-100 rounded-lg"
+                  />
+                </div>
+                <div className="text-sm text-white/80 mt-4">
+                  <p>
+                    Scratched on:{" "}
+                    {new Date(coupon.scratched_date).toLocaleDateString()}
+                  </p>
+                  <p>
+                    at {new Date(coupon.scratched_date).toLocaleTimeString()}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          // Not scratched yet - show interactive scratch card
-          <ScratchCard couponCode={coupon.code} onScratch={handleScratch} />
-        )}
+          ) : (
+            <ScratchCard couponCode={coupon.code} onScratch={handleScratch} />
+          )}
+        </div>
       </div>
     </div>
   );

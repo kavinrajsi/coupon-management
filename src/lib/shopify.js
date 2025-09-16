@@ -1,30 +1,31 @@
 // @/lib/shopify.js
-import { createAdminApiClient } from '@shopify/admin-api-client';
+import { createAdminApiClient } from "@shopify/admin-api-client";
 
 // ---- Debugging (keep) ----
-console.log('Shopify Config Check:');
-console.log('Store URL:', process.env.SHOPIFY_STORE_URL);
-console.log('Access Token exists:', !!process.env.SHOPIFY_ACCESS_TOKEN);
-console.log('API Version:', process.env.SHOPIFY_API_VERSION);
-
+if (process.env.NODE_ENV === "development") {
+  console.log("Shopify Config Check:");
+  console.log("Store URL:", process.env.SHOPIFY_STORE_URL);
+  console.log("Access Token exists:", !!process.env.SHOPIFY_ACCESS_TOKEN);
+  console.log("API Version:", process.env.SHOPIFY_API_VERSION);
+}
 // ---- GraphQL client (keep) ----
 const client = createAdminApiClient({
   storeDomain: process.env.SHOPIFY_STORE_URL,
-  apiVersion: process.env.SHOPIFY_API_VERSION || '2023-10',
+  apiVersion: process.env.SHOPIFY_API_VERSION || "2023-10",
   accessToken: process.env.SHOPIFY_ACCESS_TOKEN,
 });
 
 // ---- Small REST helper for order note ops ----
-const API_VERSION = process.env.SHOPIFY_API_VERSION || '2023-10';
+const API_VERSION = process.env.SHOPIFY_API_VERSION || "2023-10";
 async function shopifyRest(path, init = {}) {
   const url = `https://${process.env.SHOPIFY_STORE_URL}/admin/api/${API_VERSION}${path}`;
   const res = await fetch(url, {
     ...init,
     headers: {
-      'X-Shopify-Access-Token': process.env.SHOPIFY_ACCESS_TOKEN,
-      'Content-Type': 'application/json',
-      ...(init.headers || {})
-    }
+      "X-Shopify-Access-Token": process.env.SHOPIFY_ACCESS_TOKEN,
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
   });
   if (!res.ok) {
     const text = await res.text();
@@ -40,23 +41,29 @@ async function shopifyRest(path, init = {}) {
 export async function appendOrderNote(orderId, line) {
   try {
     if (!orderId || isNaN(Number(orderId))) {
-      return { success: false, skipped: true, message: 'Invalid/non-numeric orderId' };
+      return {
+        success: false,
+        skipped: true,
+        message: "Invalid/non-numeric orderId",
+      };
     }
 
     // 1) Fetch current note
-    const { order } = await shopifyRest(`/orders/${orderId}.json`, { method: 'GET' });
-    const prefix = order.note ? `${order.note}\n` : '';
+    const { order } = await shopifyRest(`/orders/${orderId}.json`, {
+      method: "GET",
+    });
+    const prefix = order.note ? `${order.note}\n` : "";
     const newNote = `${prefix}${line}`;
 
     // 2) Update note
     await shopifyRest(`/orders/${orderId}.json`, {
-      method: 'PUT',
-      body: JSON.stringify({ order: { id: orderId, note: newNote } })
+      method: "PUT",
+      body: JSON.stringify({ order: { id: orderId, note: newNote } }),
     });
 
-    return { success: true, message: 'Order note updated' };
+    return { success: true, message: "Order note updated" };
   } catch (error) {
-    console.error('❌ appendOrderNote error:', error);
+    console.error("❌ appendOrderNote error:", error);
     return { success: false, message: error.message };
   }
 }
@@ -68,7 +75,11 @@ export async function appendOrderNote(orderId, line) {
 export async function addOrderCouponLogMetafield(orderId, entry) {
   try {
     if (!orderId || isNaN(Number(orderId))) {
-      return { success: false, skipped: true, message: 'Invalid/non-numeric orderId' };
+      return {
+        success: false,
+        skipped: true,
+        message: "Invalid/non-numeric orderId",
+      };
     }
     const ownerId = `gid://shopify/Order/${orderId}`;
     const mutation = `
@@ -80,20 +91,22 @@ export async function addOrderCouponLogMetafield(orderId, entry) {
     `;
     const res = await client.request(mutation, {
       variables: {
-        metafields: [{
-          ownerId,
-          namespace: "coupon",
-          key: "validation_log",
-          type: "json",
-          value: JSON.stringify(entry)
-        }]
-      }
+        metafields: [
+          {
+            ownerId,
+            namespace: "coupon",
+            key: "validation_log",
+            type: "json",
+            value: JSON.stringify(entry),
+          },
+        ],
+      },
     });
     const errs = res.data?.metafieldsSet?.userErrors || [];
-    if (errs.length) throw new Error(errs.map(e => e.message).join(', '));
-    return { success: true, message: 'Metafield log updated' };
+    if (errs.length) throw new Error(errs.map((e) => e.message).join(", "));
+    return { success: true, message: "Metafield log updated" };
   } catch (error) {
-    console.error('❌ addOrderCouponLogMetafield error:', error);
+    console.error("❌ addOrderCouponLogMetafield error:", error);
     return { success: false, message: error.message };
   }
 }
@@ -103,7 +116,7 @@ export async function addOrderCouponLogMetafield(orderId, entry) {
 export async function createShopifyDiscount(couponCode) {
   try {
     console.log(`🔄 Creating Shopify discount for: ${couponCode}`);
-    
+
     // Test connection first
     const testQuery = `
       query {
@@ -113,12 +126,15 @@ export async function createShopifyDiscount(couponCode) {
         }
       }
     `;
-    
+
     try {
       const testResponse = await client.request(testQuery);
-      console.log('✅ Shopify connection successful:', testResponse.data.shop.name);
+      console.log(
+        "✅ Shopify connection successful:",
+        testResponse.data.shop.name
+      );
     } catch (testError) {
-      console.error('❌ Shopify connection failed:', testError);
+      console.error("❌ Shopify connection failed:", testError);
       throw new Error(`Connection failed: ${testError.message}`);
     }
 
@@ -128,7 +144,7 @@ export async function createShopifyDiscount(couponCode) {
     endDate.setDate(endDate.getDate() + 120);
     const endDateISO = endDate.toISOString();
 
-    console.log('📅 Date range:', { startDate, endDateISO });
+    console.log("📅 Date range:", { startDate, endDateISO });
 
     // GraphQL mutation to create discount
     const discountCodeCreate = `
@@ -165,90 +181,95 @@ export async function createShopifyDiscount(couponCode) {
         startsAt: startDate,
         endsAt: endDateISO,
         customerSelection: {
-          all: true
+          all: true,
         },
         customerGets: {
           value: {
             discountAmount: {
               amount: "1000.00",
-              appliesOnEachItem: false
-            }
+              appliesOnEachItem: false,
+            },
           },
           items: {
-            all: true
-          }
+            all: true,
+          },
         },
         minimumRequirement: {
           subtotal: {
-            greaterThanOrEqualToSubtotal: "1000.00"
-          }
+            greaterThanOrEqualToSubtotal: "1000.00",
+          },
         },
         usageLimit: 1,
         appliesOncePerCustomer: true,
         combinesWith: {
           orderDiscounts: false,
           productDiscounts: false,
-          shippingDiscounts: false
-        }
-      }
+          shippingDiscounts: false,
+        },
+      },
     };
 
-    console.log('📤 Sending mutation variables:', JSON.stringify(variables, null, 2));
+    console.log(
+      "📤 Sending mutation variables:",
+      JSON.stringify(variables, null, 2)
+    );
 
     const response = await client.request(discountCodeCreate, {
       variables,
     });
 
-    console.log('📥 Shopify response:', JSON.stringify(response, null, 2));
+    console.log("📥 Shopify response:", JSON.stringify(response, null, 2));
 
     if (response.data?.discountCodeBasicCreate?.userErrors?.length > 0) {
       const errors = response.data.discountCodeBasicCreate.userErrors;
-      console.error('❌ Shopify user errors:', errors);
-      
+      console.error("❌ Shopify user errors:", errors);
+
       throw new Error(
-        errors.map(error => `${error.field}: ${error.message} (${error.code})`).join(', ')
+        errors
+          .map((error) => `${error.field}: ${error.message} (${error.code})`)
+          .join(", ")
       );
     }
 
-    const discountNode = response.data?.discountCodeBasicCreate?.codeDiscountNode;
+    const discountNode =
+      response.data?.discountCodeBasicCreate?.codeDiscountNode;
     if (!discountNode) {
-      throw new Error('No discount node returned from Shopify');
+      throw new Error("No discount node returned from Shopify");
     }
 
-    console.log('✅ Shopify discount created successfully:', discountNode.id);
+    console.log("✅ Shopify discount created successfully:", discountNode.id);
 
     return {
       success: true,
       shopifyId: discountNode.id,
-      message: 'Discount created successfully in Shopify'
+      message: "Discount created successfully in Shopify",
     };
-
   } catch (error) {
-    console.error('❌ Shopify discount creation error:', error);
-    
-    if (error.message.includes('Unauthorized')) {
+    console.error("❌ Shopify discount creation error:", error);
+
+    if (error.message.includes("Unauthorized")) {
       return {
         success: false,
-        message: 'Invalid Shopify access token. Please check your credentials.'
+        message: "Invalid Shopify access token. Please check your credentials.",
       };
     }
-    if (error.message.includes('not found')) {
+    if (error.message.includes("not found")) {
       return {
         success: false,
-        message: 'Shopify store not found. Please check SHOPIFY_STORE_URL.'
+        message: "Shopify store not found. Please check SHOPIFY_STORE_URL.",
       };
     }
-    if (error.message.includes('rate limit')) {
+    if (error.message.includes("rate limit")) {
       return {
         success: false,
-        message: 'Shopify API rate limit exceeded. Please try again later.'
+        message: "Shopify API rate limit exceeded. Please try again later.",
       };
     }
 
     return {
       success: false,
       message: `Shopify API Error: ${error.message}`,
-      details: error
+      details: error,
     };
   }
 }
@@ -284,54 +305,59 @@ export async function disableShopifyDiscount(shopifyDiscountId) {
     `;
 
     const response = await client.request(discountCodeDeactivate, {
-      variables: { id: shopifyDiscountId }
+      variables: { id: shopifyDiscountId },
     });
 
-    console.log('📥 Shopify deactivate response:', JSON.stringify(response, null, 2));
+    console.log(
+      "📥 Shopify deactivate response:",
+      JSON.stringify(response, null, 2)
+    );
 
     if (response.data?.discountCodeDeactivate?.userErrors?.length > 0) {
       const errors = response.data.discountCodeDeactivate.userErrors;
-      console.error('❌ Shopify deactivate errors:', errors);
-      
+      console.error("❌ Shopify deactivate errors:", errors);
+
       throw new Error(
-        errors.map(error => `${error.field}: ${error.message} (${error.code})`).join(', ')
+        errors
+          .map((error) => `${error.field}: ${error.message} (${error.code})`)
+          .join(", ")
       );
     }
 
-    const discountNode = response.data?.discountCodeDeactivate?.codeDiscountNode;
+    const discountNode =
+      response.data?.discountCodeDeactivate?.codeDiscountNode;
     if (!discountNode) {
-      throw new Error('No discount node returned from Shopify deactivation');
+      throw new Error("No discount node returned from Shopify deactivation");
     }
 
-    console.log('✅ Shopify discount disabled successfully:', discountNode.id);
+    console.log("✅ Shopify discount disabled successfully:", discountNode.id);
 
     return {
       success: true,
       shopifyId: discountNode.id,
       status: discountNode.codeDiscount?.status,
-      message: 'Discount disabled successfully in Shopify'
+      message: "Discount disabled successfully in Shopify",
     };
-
   } catch (error) {
-    console.error('❌ Shopify discount deactivation error:', error);
-    
-    if (error.message.includes('not found')) {
+    console.error("❌ Shopify discount deactivation error:", error);
+
+    if (error.message.includes("not found")) {
       return {
         success: false,
-        message: 'Discount not found in Shopify (may already be deleted)'
+        message: "Discount not found in Shopify (may already be deleted)",
       };
     }
-    if (error.message.includes('Unauthorized')) {
+    if (error.message.includes("Unauthorized")) {
       return {
         success: false,
-        message: 'Unauthorized: Check Shopify access token permissions'
+        message: "Unauthorized: Check Shopify access token permissions",
       };
     }
 
     return {
       success: false,
       message: `Failed to disable Shopify discount: ${error.message}`,
-      details: error
+      details: error,
     };
   }
 }
@@ -353,31 +379,33 @@ export async function deleteShopifyDiscount(shopifyId) {
     `;
 
     const response = await client.request(discountCodeDelete, {
-      variables: { id: shopifyId }
+      variables: { id: shopifyId },
     });
 
-    console.log('📥 Shopify delete response:', JSON.stringify(response, null, 2));
+    console.log(
+      "📥 Shopify delete response:",
+      JSON.stringify(response, null, 2)
+    );
 
     if (response.data?.discountCodeDelete?.userErrors?.length > 0) {
       throw new Error(
         response.data.discountCodeDelete.userErrors
-          .map(error => error.message)
-          .join(', ')
+          .map((error) => error.message)
+          .join(", ")
       );
     }
 
-    console.log('✅ Shopify discount deleted successfully');
+    console.log("✅ Shopify discount deleted successfully");
 
     return {
       success: true,
-      message: 'Discount deleted from Shopify'
+      message: "Discount deleted from Shopify",
     };
-
   } catch (error) {
-    console.error('❌ Shopify discount deletion error:', error);
+    console.error("❌ Shopify discount deletion error:", error);
     return {
       success: false,
-      message: `Failed to delete Shopify discount: ${error.message}`
+      message: `Failed to delete Shopify discount: ${error.message}`,
     };
   }
 }
@@ -426,28 +454,30 @@ export async function getShopifyDiscountStatus(shopifyDiscountId) {
     `;
 
     const response = await client.request(query, {
-      variables: { id: shopifyDiscountId }
+      variables: { id: shopifyDiscountId },
     });
 
-    console.log('📥 Shopify status response:', JSON.stringify(response, null, 2));
+    console.log(
+      "📥 Shopify status response:",
+      JSON.stringify(response, null, 2)
+    );
 
     return {
       success: true,
-      discount: response.data?.discountNode?.discount
+      discount: response.data?.discountNode?.discount,
     };
-
   } catch (error) {
-    console.error('❌ Error getting Shopify discount status:', error);
+    console.error("❌ Error getting Shopify discount status:", error);
     return {
       success: false,
-      message: error.message
+      message: error.message,
     };
   }
 }
 
 export async function listShopifyDiscounts(limit = 50) {
   try {
-    console.log('📋 Listing Shopify discounts...');
+    console.log("📋 Listing Shopify discounts...");
 
     const query = `
       query listDiscounts($first: Int!) {
@@ -477,61 +507,69 @@ export async function listShopifyDiscounts(limit = 50) {
     `;
 
     const response = await client.request(query, {
-      variables: { first: limit }
+      variables: { first: limit },
     });
 
-    console.log(`📥 Found ${response.data?.codeDiscountNodes?.nodes?.length || 0} discounts`);
+    console.log(
+      `📥 Found ${
+        response.data?.codeDiscountNodes?.nodes?.length || 0
+      } discounts`
+    );
 
     return {
       success: true,
       discounts: response.data?.codeDiscountNodes?.nodes || [],
-      pageInfo: response.data?.codeDiscountNodes?.pageInfo
+      pageInfo: response.data?.codeDiscountNodes?.pageInfo,
     };
-
   } catch (error) {
-    console.error('❌ Error listing Shopify discounts:', error);
+    console.error("❌ Error listing Shopify discounts:", error);
     return {
       success: false,
-      message: error.message
+      message: error.message,
     };
   }
 }
 
 export async function syncShopifyStatusToLocal() {
   try {
-    console.log('🔄 Starting Shopify to Local status sync...');
+    console.log("🔄 Starting Shopify to Local status sync...");
 
     // Get all discounts from Shopify
     const shopifyDiscounts = await listShopifyDiscounts(250); // Get up to 250 discounts
-    
+
     if (!shopifyDiscounts.success) {
-      throw new Error(`Failed to fetch Shopify discounts: ${shopifyDiscounts.message}`);
+      throw new Error(
+        `Failed to fetch Shopify discounts: ${shopifyDiscounts.message}`
+      );
     }
 
     const results = [];
-    
+
     for (const discountNode of shopifyDiscounts.discounts) {
       const discount = discountNode.codeDiscount;
       const couponCode = discount.codes?.nodes?.[0]?.code;
       const shopifyStatus = discount.status; // 'ACTIVE', 'EXPIRED', etc.
-      
+
       if (!couponCode) {
-        console.warn('⚠️ Discount without code found, skipping:', discountNode.id);
+        console.warn(
+          "⚠️ Discount without code found, skipping:",
+          discountNode.id
+        );
         continue;
       }
 
       // Map Shopify status to local status
       let localShopifyStatus;
       switch (shopifyStatus) {
-        case 'ACTIVE':
-          localShopifyStatus = 'active';
+        case "ACTIVE":
+          localShopifyStatus = "active";
           break;
-        case 'EXPIRED':
-        case 'SCHEDULED':
-          localShopifyStatus = 'disabled';
+        case "EXPIRED":
+        case "SCHEDULED":
+          localShopifyStatus = "disabled";
           break;
         default:
-          localShopifyStatus = 'disabled';
+          localShopifyStatus = "disabled";
       }
 
       results.push({
@@ -539,21 +577,20 @@ export async function syncShopifyStatusToLocal() {
         shopifyId: discountNode.id,
         shopifyStatus,
         localShopifyStatus,
-        synced: false
+        synced: false,
       });
     }
 
     return {
       success: true,
       discounts: results,
-      message: `Found ${results.length} discounts to sync`
+      message: `Found ${results.length} discounts to sync`,
     };
-
   } catch (error) {
-    console.error('❌ Error syncing Shopify status to local:', error);
+    console.error("❌ Error syncing Shopify status to local:", error);
     return {
       success: false,
-      message: error.message
+      message: error.message,
     };
   }
 }
@@ -561,62 +598,76 @@ export async function syncShopifyStatusToLocal() {
 export async function checkAndSyncSpecificCoupon(couponCode) {
   try {
     console.log(`🔍 Checking Shopify status for coupon: ${couponCode}`);
-    
-    const { getCouponByCode, updateShopifyStatus } = await import('./supabase.js');
-    
+
+    const { getCouponByCode, updateShopifyStatus } = await import(
+      "./supabase.js"
+    );
+
     const localCoupon = await getCouponByCode(couponCode);
     if (!localCoupon || !localCoupon.shopify_discount_id) {
-      return { success: false, message: 'Coupon not found or not synced to Shopify' };
+      return {
+        success: false,
+        message: "Coupon not found or not synced to Shopify",
+      };
     }
 
-    const shopifyStatus = await getShopifyDiscountStatus(localCoupon.shopify_discount_id);
+    const shopifyStatus = await getShopifyDiscountStatus(
+      localCoupon.shopify_discount_id
+    );
     if (!shopifyStatus.success) {
-      return { success: false, message: `Failed to get Shopify status: ${shopifyStatus.message}` };
+      return {
+        success: false,
+        message: `Failed to get Shopify status: ${shopifyStatus.message}`,
+      };
     }
 
     const discount = shopifyStatus.discount;
     const shopifyDiscountStatus = discount?.status;
-    
+
     let newLocalStatus;
     switch (shopifyDiscountStatus) {
-      case 'ACTIVE':
-        newLocalStatus = 'active';
+      case "ACTIVE":
+        newLocalStatus = "active";
         break;
-      case 'EXPIRED':
-      case 'SCHEDULED':
+      case "EXPIRED":
+      case "SCHEDULED":
       default:
-        newLocalStatus = 'disabled';
+        newLocalStatus = "disabled";
     }
 
     if (localCoupon.shopify_status !== newLocalStatus) {
-      console.log(`🔄 Updating local status for ${couponCode}: ${localCoupon.shopify_status} → ${newLocalStatus}`);
+      console.log(
+        `🔄 Updating local status for ${couponCode}: ${localCoupon.shopify_status} → ${newLocalStatus}`
+      );
       await updateShopifyStatus(couponCode, newLocalStatus);
-      
-      if (newLocalStatus === 'disabled' && localCoupon.status === 'active') {
-        const { deactivateLocalCoupon } = await import('./supabase.js');
-        await deactivateLocalCoupon(couponCode, 'Deactivated due to Shopify sync');
+
+      if (newLocalStatus === "disabled" && localCoupon.status === "active") {
+        const { deactivateLocalCoupon } = await import("./supabase.js");
+        await deactivateLocalCoupon(
+          couponCode,
+          "Deactivated due to Shopify sync"
+        );
       }
-      
+
       return {
         success: true,
         message: `Updated local status to ${newLocalStatus}`,
         updated: true,
         oldStatus: localCoupon.shopify_status,
-        newStatus: newLocalStatus
+        newStatus: newLocalStatus,
       };
     }
 
-    return { success: true, message: 'Status already in sync', updated: false };
-
+    return { success: true, message: "Status already in sync", updated: false };
   } catch (error) {
-    console.error('❌ Error checking specific coupon:', error);
+    console.error("❌ Error checking specific coupon:", error);
     return { success: false, message: error.message };
   }
 }
 
 export async function testShopifyConnection() {
   try {
-    console.log('🧪 Testing Shopify connection...');
+    console.log("🧪 Testing Shopify connection...");
 
     const query = `
       query {
@@ -633,22 +684,21 @@ export async function testShopifyConnection() {
     `;
 
     const response = await client.request(query);
-    
-    console.log('✅ Shopify connection test successful!');
-    
+
+    console.log("✅ Shopify connection test successful!");
+
     return {
       success: true,
       shop: response.data.shop,
-      message: 'Connection successful'
+      message: "Connection successful",
     };
-
   } catch (error) {
-    console.error('❌ Shopify connection test failed:', error);
-    
+    console.error("❌ Shopify connection test failed:", error);
+
     return {
       success: false,
       message: error.message,
-      details: error
+      details: error,
     };
   }
 }

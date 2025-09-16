@@ -1,5 +1,6 @@
+// src/app/api/coupons/route.js - Updated with pagination
 import { NextResponse } from 'next/server';
-import { getAllCoupons, initDatabase } from '@/lib/supabase';
+import { getAllCoupons, getCouponsPaginated, initDatabase } from '@/lib/supabase';
 
 export async function GET(request) {
   try {
@@ -10,6 +11,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const code = searchParams.get('code');
     
+    // Handle single coupon lookup
     if (code) {
       console.log('🔍 API: Fetching single coupon:', code);
       const { getCouponByCode } = await import('@/lib/supabase');
@@ -19,27 +21,57 @@ export async function GET(request) {
       
       return NextResponse.json({
         success: !!coupon,
-        coupons: coupon ? [coupon] : []
+        coupons: coupon ? [coupon] : [],
+        pagination: null
       });
     }
+
+    // Handle paginated requests
+    const page = parseInt(searchParams.get('page')) || 1;
+    const limit = parseInt(searchParams.get('limit')) || 1000;
+    const sortBy = searchParams.get('sortBy') || 'created_date';
+    const sortOrder = searchParams.get('sortOrder') || 'desc';
+    const searchQuery = searchParams.get('search') || '';
+
+    // Validate pagination parameters
+    if (page < 1 || limit < 1 || limit > 1000) {
+      return NextResponse.json({
+        success: false,
+        message: 'Invalid pagination parameters. Page must be >= 1, limit must be 1-1000.',
+        coupons: []
+      }, { status: 400 });
+    }
+
+    console.log('📋 API: Fetching paginated coupons...', { page, limit, sortBy, sortOrder, searchQuery });
     
-    console.log('📋 API: Fetching all coupons...');
-    const coupons = await getAllCoupons();
+    const result = await getCouponsPaginated({
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+      searchQuery
+    });
     
-    console.log('📊 API: Fetched coupons count:', coupons?.length || 0);
-    console.log('📋 API: First few coupons:', coupons?.slice(0, 3));
+    console.log('📊 API: Paginated result:', {
+      couponCount: result.coupons?.length || 0,
+      totalCount: result.pagination?.totalCount,
+      totalPages: result.pagination?.totalPages
+    });
     
     return NextResponse.json({
       success: true,
-      coupons: coupons || []
+      coupons: result.coupons || [],
+      pagination: result.pagination
     });
+    
   } catch (error) {
     console.error('❌ API: Error fetching coupons:', error);
     return NextResponse.json({
       success: false,
       message: 'Error fetching coupons',
       error: error.message,
-      coupons: []
+      coupons: [],
+      pagination: null
     }, { status: 500 });
   }
 }

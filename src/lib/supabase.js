@@ -586,4 +586,202 @@ export async function getCouponUsageStats(timeframe = '24 hours') {
   }
 }
 
+// Get paginated coupons with search and sorting
+export async function getCouponsPaginated({
+  page = 1,
+  limit = 1000,
+  sortBy = 'created_date',
+  sortOrder = 'desc',
+  searchQuery = ''
+}) {
+  try {
+    console.log('📋 Supabase: Fetching paginated coupons...', { page, limit, sortBy, sortOrder, searchQuery });
+
+    // Calculate offset
+    const offset = (page - 1) * limit;
+
+    // Validate sort column to prevent SQL injection
+    const validSortColumns = [
+      'id', 'code', 'status', 'created_date', 'used_date', 
+      'scratched_date', 'employee_code', 'is_scratched', 
+      'store_location', 'shopify_status'
+    ];
+    
+    if (!validSortColumns.includes(sortBy)) {
+      throw new Error(`Invalid sort column: ${sortBy}`);
+    }
+
+    // Validate sort order
+    const validSortOrders = ['asc', 'desc'];
+    if (!validSortOrders.includes(sortOrder.toLowerCase())) {
+      throw new Error(`Invalid sort order: ${sortOrder}`);
+    }
+
+    // Build the base query
+    let query = supabaseAdmin
+      .from('coupons')
+      .select('*');
+
+    // Add search filter if provided
+    if (searchQuery && searchQuery.trim()) {
+      const trimmedQuery = searchQuery.trim().toLowerCase();
+      query = query.or(`code.ilike.%${trimmedQuery}%,employee_code.ilike.%${trimmedQuery}%,store_location.ilike.%${trimmedQuery}%`);
+    }
+
+    // Get total count for pagination (before applying limit/offset)
+    const { count: totalCount, error: countError } = await supabaseAdmin
+      .from('coupons')
+      .select('*', { count: 'exact', head: true })
+      .then(result => {
+        // Apply same search filter for count
+        if (searchQuery && searchQuery.trim()) {
+          const trimmedQuery = searchQuery.trim().toLowerCase();
+          return supabaseAdmin
+            .from('coupons')
+            .select('*', { count: 'exact', head: true })
+            .or(`code.ilike.%${trimmedQuery}%,employee_code.ilike.%${trimmedQuery}%,store_location.ilike.%${trimmedQuery}%`);
+        }
+        return result;
+      });
+
+    if (countError) {
+      console.error('❌ Error getting total count:', countError);
+      throw countError;
+    }
+
+    // Apply sorting, pagination
+    const { data, error } = await query
+      .order(sortBy, { ascending: sortOrder.toLowerCase() === 'asc' })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error('❌ Error fetching paginated coupons:', error);
+      throw error;
+    }
+
+    // Process the data to ensure valid status
+    const processedData = (data || []).map(coupon => ({
+      ...coupon,
+      status: coupon.status || 'active',
+      shopify_status: coupon.shopify_status || 'active'
+    }));
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalCount / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
+
+    const pagination = {
+      currentPage: page,
+      totalPages,
+      totalCount,
+      limit,
+      hasNextPage,
+      hasPrevPage,
+      startIndex: offset + 1,
+      endIndex: Math.min(offset + limit, totalCount)
+    };
+
+    console.log('📊 Supabase: Pagination result:', pagination);
+
+    return {
+      coupons: processedData,
+      pagination
+    };
+
+  } catch (error) {
+    console.error('❌ Error in getCouponsPaginated:', error);
+    throw error;
+  }
+}
+
+// Get coupon statistics (optimized for large datasets)
+export async function getCouponStats() {
+  try {
+    console.log('📊 Supabase: Fetching coupon statistics...');
+
+    // Use aggregate queries instead of loading all data
+    const [totalResult, activeResult, usedResult, scratchedResult] = await Promise.all([
+      // Total count
+      supabaseAdmin
+        .from('coupons')
+        .select('*', { count: 'exact', head: true }),
+      
+      // Active count
+      supabaseAdmin
+        .from('coupons')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'active'),
+      
+      // Used count
+      supabaseAdmin
+        .from('coupons')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'used'),
+      
+      // Scratched count
+      supabaseAdmin
+        .from('coupons')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_scratched', true)
+    ]);
+
+    // Check for errors
+    const errors = [totalResult.error, activeResult.error, usedResult.error, scratchedResult.error].filter(Boolean);
+    if (errors.length > 0) {
+      throw new Error(`Statistics query errors: ${errors.map(e => e.message).join(', ')}`);
+    }
+
+    const stats = {
+      total: totalResult.count || 0,
+      active: activeResult.count || 0,
+      used: usedResult.count || 0,
+      scratched: scratchedResult.count || 0
+    };
+
+    console.log('✅ Supabase: Statistics fetched:', stats);
+    return stats;
+
+  } catch (error) {
+    console.error('❌ Error fetching coupon statistics:', error);
+    throw error;
+  }
+}
+
+// Optimized search function for large datasets
+export async function searchCoupons(searchQuery, limit = 50) {
+  try {
+    if (!searchQuery || !searchQuery.trim()) {
+      return { coupons: [], totalCount: 0 };
+    }
+
+    const trimmedQuery = searchQuery.trim().toLowerCase();
+    
+    // Use ILIKE for case-insensitive search with index support
+    const { data, error, count } = await supabaseAdmin
+      .from('coupons')
+      .select('*', { count: 'exact' })
+      .or(`code.ilike.%${trimmedQuery}%,employee_code.ilike.%${trimmedQuery}%,store_location.ilike.%${trimmedQuery}%`)
+      .order('created_date', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+
+    const processedData = (data || []).map(coupon => ({
+      ...coupon,
+      status: coupon.status || 'active',
+      shopify_status: coupon.shopify_status || 'active'
+    }));
+
+    return {
+      coupons: processedData,
+      totalCount: count || 0
+    };
+
+  } catch (error) {
+    console.error('❌ Error searching coupons:', error);
+    throw error;
+  }
+}
+
 export default supabaseAdmin;
